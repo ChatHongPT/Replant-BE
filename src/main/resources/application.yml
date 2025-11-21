@@ -1,0 +1,104 @@
+server:
+  port: 8080
+  timezone: Asia/Seoul
+
+spring:
+  application:
+    name: Replant-BE
+
+  datasource:
+    db1:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      jdbc-url: ${DB1_URL}
+      username: ${DB1_USERNAME}
+      password: ${DB1_PASSWORD}
+      hikari:
+        connection-timeout: 30000
+        socket-timeout: 60000
+        maximum-pool-size: 10
+        minimum-idle: 5
+        max-lifetime: 1800000
+        idle-timeout: 600000
+        leak-detection-threshold: 60000
+
+  mvc:
+    hiddenmethod:
+      filter:
+        enabled: true
+    static-path-pattern: /files/**
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  #      location: /home/ubuntu/files
+
+  jackson:
+    time-zone: Asia/Seoul
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+
+    # jpa format
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    show-sql: true
+
+  # Redis 설정
+  data:
+    redis:
+      host: ${REDIS_URL}
+      port: ${REDIS_PORT}
+      password: # 비밀번호 없으면 비워둬도 됨
+      timeout: 6000ms
+
+  # log
+  output:
+    ansi:
+      enabled: always
+
+  # Mail 설정
+  mail:
+    host: smtp.naver.com
+    port: 465
+    username: ${NAVER_MAIL}
+    password: ${NAVER_PW}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.ssl.enable: true
+      mail.smtp.ssl.trust: smtp.naver.com
+jwt:
+  secret: ${JWT}
+
+aws:
+  s3:
+    bucket: ${S3_BUCKET}
+    accessKey: ${S3_ACCESS_KEY}
+    secretKey: ${S3_SECRET_KEY}
+    client: ${S3_CLIENT}
+    region: ${S3_REGION}
+
+# Swagger/OpenAPI 설정
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
