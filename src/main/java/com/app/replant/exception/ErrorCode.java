@@ -100,7 +100,54 @@ public enum ErrorCode {
     // 채팅
     CHAT_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT-001", "사용자를 찾을 수 없습니다."),
     CHAT_LLM_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-002", "AI 응답 생성에 실패했습니다."),
-    CHAT_DATA_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-003", "사용자 데이터 조회에 실패했습니다.");
+    CHAT_DATA_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-003", "사용자 데이터 조회에 실패했습니다."),
+
+    // Reant
+    REANT_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "리앤트를 찾을 수 없습니다"),
+
+    // Mission
+    MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "M001", "미션을 찾을 수 없습니다"),
+    USER_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "할당된 미션을 찾을 수 없습니다"),
+    MISSION_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "M003", "이미 완료된 미션입니다"),
+    MISSION_EXPIRED(HttpStatus.BAD_REQUEST, "M004", "만료된 미션입니다"),
+
+    // CustomMission
+    CUSTOM_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "CM001", "커스텀 미션을 찾을 수 없습니다"),
+    NOT_MISSION_CREATOR(HttpStatus.FORBIDDEN, "CM002", "미션 생성자만 수정/삭제할 수 있습니다"),
+
+    // Badge
+    BADGE_REQUIRED(HttpStatus.FORBIDDEN, "B001", "유효한 뱃지가 필요합니다"),
+    BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "B002", "뱃지를 찾을 수 없습니다"),
+
+    // Review
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV001", "이미 리뷰를 작성했습니다"),
+
+    // QnA
+    QNA_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "QnA를 찾을 수 없습니다"),
+    NOT_QUESTIONER(HttpStatus.FORBIDDEN, "Q003", "질문 작성자만 채택할 수 있습니다"),
+
+    // Verification
+    VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "V001", "인증글을 찾을 수 없습니다"),
+    ALREADY_VOTED(HttpStatus.BAD_REQUEST, "V002", "이미 투표했습니다"),
+    SELF_VOTE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V003", "본인 글에는 투표할 수 없습니다"),
+    GPS_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "V005", "목표 위치에서 너무 멀리 있습니다"),
+    TIME_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "V006", "필요 시간을 충족하지 못했습니다"),
+
+    // Post
+    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "게시글을 찾을 수 없습니다"),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "P002", "댓글을 찾을 수 없습니다"),
+    NOT_POST_AUTHOR(HttpStatus.FORBIDDEN, "P003", "작성자만 수정/삭제할 수 있습니다"),
+
+    // Recommendation
+    RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RC001", "추천을 찾을 수 없습니다"),
+    RECOMMENDATION_EXPIRED(HttpStatus.BAD_REQUEST, "RC002", "만료된 추천입니다"),
+
+    // Chat
+    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CH001", "채팅방을 찾을 수 없습니다"),
+    NOT_CHAT_PARTICIPANT(HttpStatus.FORBIDDEN, "CH003", "채팅방 참여자가 아닙니다"),
+
+    // Notification
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "알림을 찾을 수 없습니다");
 
     private final HttpStatus statusCode;
     private final String errorCode;
