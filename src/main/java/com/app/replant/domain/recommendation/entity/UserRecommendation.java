@@ -1,8 +1,8 @@
 package com.app.replant.domain.recommendation.entity;
 
-import com.app.replant.domain.mission.entity.CustomMission;
+import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.entity.UserMission;
+import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;

@@ -42,12 +42,12 @@ public class MissionQnAAnswer {
     private LocalDateTime createdAt;
 
     @Builder
-    private MissionQnAAnswer(MissionQnA qna, User answerer, UserBadge badge, String content) {
+    private MissionQnAAnswer(MissionQnA qna, User answerer, UserBadge badge, String content, Boolean isAccepted) {
         this.qna = qna;
         this.answerer = answerer;
         this.badge = badge;
         this.content = content;
-        this.isAccepted = false;
+        this.isAccepted = isAccepted != null ? isAccepted : false;
         this.createdAt = LocalDateTime.now();
     }
 

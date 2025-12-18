@@ -1,7 +1,7 @@
 package com.app.replant.domain.verification.entity;
 
 import com.app.replant.common.BaseEntity;
-import com.app.replant.domain.mission.entity.UserMission;
+import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;

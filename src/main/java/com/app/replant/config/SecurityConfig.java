@@ -44,7 +44,14 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         
         // 허용할 오리진 설정 (프론트엔드 주소)
-        configuration.setAllowedOrigins(Collections.singletonList(frontendUrl));
+        // 개발 환경: localhost, 프로덕션 환경: 실제 도메인
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            frontendUrl,
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "http://10.0.2.2:*", // Android Emulator
+            "http://192.168.*.*:*" // 로컬 네트워크
+        ));
         
         // 허용할 HTTP 메서드
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
@@ -90,15 +97,35 @@ public class SecurityConfig {
                 
                 // 권한별 URL 접근 설정
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll() // 인증 관련 경로는 모두 허용
-                        .requestMatchers("/test/**").permitAll() // 테스트용 경로 (배포 전 삭제 필요!)
-                        .requestMatchers("/ws/**").permitAll() // WebSocket 경로 허용
-                        .requestMatchers("/sse/**").authenticated() // SSE 경로는 인증 필요
-                        .requestMatchers("/files/**").permitAll() // 파일 경로 허용
-                        .requestMatchers("/swagger-ui.html","/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll() // Swagger UI
-                        .requestMatchers("/member/**").hasRole("USER") // 나머지 회원 경로는 USER 권한 필요
-                        .requestMatchers("/admin/**").hasRole("ADMIN") // 관리자 경로는 ADMIN 권한 필요
-                        .anyRequest().authenticated() // 나머지는 인증 필요
+                        // 공개 API (인증 불필요)
+                        .requestMatchers("/api/auth/**").permitAll() // 인증 관련 (OAuth 포함)
+                        .requestMatchers("/auth/**").permitAll() // 기존 인증 경로
+                        .requestMatchers("/api/missions/**").permitAll() // 미션 목록 조회 (공개)
+                        .requestMatchers("/api/custom-missions/**").permitAll() // 커스텀 미션 목록 (공개)
+                        .requestMatchers("/api/verifications").permitAll() // 인증 게시판 목록 (공개)
+                        .requestMatchers("/api/posts").permitAll() // 게시글 목록 (공개)
+                        .requestMatchers("/ws/**").permitAll() // WebSocket
+                        .requestMatchers("/files/**").permitAll() // 파일 업로드/다운로드
+                        .requestMatchers("/actuator/**").permitAll() // Actuator
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll() // Swagger
+                        .requestMatchers("/h2-console/**").permitAll() // H2 Console (개발용)
+
+                        // 인증 필요 API
+                        .requestMatchers("/api/users/**").authenticated()
+                        .requestMatchers("/api/reant/**").authenticated()
+                        .requestMatchers("/api/user-missions/**").authenticated()
+                        .requestMatchers("/api/badges/**").authenticated()
+                        .requestMatchers("/api/recommendations/**").authenticated()
+                        .requestMatchers("/api/chat/**").authenticated()
+                        .requestMatchers("/api/notifications/**").authenticated()
+                        .requestMatchers("/sse/**").authenticated() // SSE
+
+                        // 관리자 API
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                        // 나머지는 인증 필요
+                        .anyRequest().authenticated()
                 )
                 
                 // JWT 필터 적용

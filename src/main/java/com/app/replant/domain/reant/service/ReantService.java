@@ -30,4 +30,9 @@ public class ReantService {
         reant.updateProfile(request.getName(), request.getAppearance());
         return ReantResponse.from(reant);
     }
+
+    public Reant findByUserId(Long userId) {
+        return reantRepository.findByUserId(userId)
+                .orElse(null);
+    }
 }

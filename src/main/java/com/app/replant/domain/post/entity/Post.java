@@ -1,7 +1,7 @@
 package com.app.replant.domain.post.entity;
 
 import com.app.replant.common.BaseEntity;
-import com.app.replant.domain.mission.entity.CustomMission;
+import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;

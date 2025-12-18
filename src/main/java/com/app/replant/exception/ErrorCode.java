@@ -46,6 +46,10 @@ public enum ErrorCode {
     DATA_ACCESS_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "ACCOUNT-018", "로그아웃 처리가 불가합니다."),
     REFRESH_TOKEN_REVOKED(HttpStatus.UNAUTHORIZED, "ACCOUNT-019", "이미 로그아웃 된 계정입니다."),
 
+    // OAuth
+    OAUTH_PROVIDER_ERROR(HttpStatus.BAD_REQUEST, "OAUTH-001", "OAuth 제공자로부터 정보를 가져오는데 실패했습니다."),
+    INVALID_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "OAUTH-002", "지원하지 않는 OAuth 제공자입니다."),
+
     // 소비 내역
     CARD_INVALID(HttpStatus.BAD_REQUEST, "HISTORY-001", "카드가 유효하지 않습니다."),
     HISTORY_ISNULL(HttpStatus.NOT_FOUND, "HISTORY-002", "해당 소비 내역이 존재하지 않습니다."),
@@ -121,15 +125,19 @@ public enum ErrorCode {
 
     // Review
     REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV001", "이미 리뷰를 작성했습니다"),
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "RV002", "리뷰를 찾을 수 없습니다"),
 
     // QnA
     QNA_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "QnA를 찾을 수 없습니다"),
+    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "Q002", "답변을 찾을 수 없습니다"),
     NOT_QUESTIONER(HttpStatus.FORBIDDEN, "Q003", "질문 작성자만 채택할 수 있습니다"),
+    ANSWER_ALREADY_ACCEPTED(HttpStatus.BAD_REQUEST, "Q004", "이미 답변이 채택되었습니다"),
 
     // Verification
     VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "V001", "인증글을 찾을 수 없습니다"),
     ALREADY_VOTED(HttpStatus.BAD_REQUEST, "V002", "이미 투표했습니다"),
     SELF_VOTE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V003", "본인 글에는 투표할 수 없습니다"),
+    MODIFICATION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V004", "수정/삭제가 불가능한 상태입니다"),
     GPS_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "V005", "목표 위치에서 너무 멀리 있습니다"),
     TIME_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "V006", "필요 시간을 충족하지 못했습니다"),
 
@@ -144,6 +152,7 @@ public enum ErrorCode {
 
     // Chat
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CH001", "채팅방을 찾을 수 없습니다"),
+    CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CH002", "비활성화된 채팅방입니다"),
     NOT_CHAT_PARTICIPANT(HttpStatus.FORBIDDEN, "CH003", "채팅방 참여자가 아닙니다"),
 
     // Notification

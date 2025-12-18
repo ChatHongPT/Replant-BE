@@ -1,7 +1,10 @@
 package com.app.replant.controller;
 
 
+import com.app.replant.common.ApiResponse;
 import com.app.replant.controller.dto.*;
+import com.app.replant.domain.user.enums.OAuthProvider;
+import com.app.replant.domain.user.service.OAuthService;
 import com.app.replant.entity.Member;
 import com.app.replant.jwt.MemberDetail;
 import com.app.replant.service.auth.AuthService;
@@ -17,13 +20,14 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "인증", description = "회원가입, 로그인, 토큰 관련 API")
 @RestController
-@RequestMapping("/auth/*")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
 
     private final AuthService authService;
     private final MailService mailService;
+    private final OAuthService oAuthService;
 
     @Operation(summary = "회원가입", description = "새로운 회원을 등록하고 자동으로 로그인합니다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회원가입 성공")
@@ -146,11 +150,27 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Parameter(description = "비밀번호 변경 요청 정보 (이메일 + 기존 비밀번호 + 새 비밀번호)", required = true)
             @RequestBody ChangePasswordDto changePasswordDto) {
-        
+
         authService.changePassword(changePasswordDto);
-        
+
         return ResponseEntity.ok(ApiResponse.res(200, "비밀번호가 성공적으로 변경되었습니다."));
     }
-    
-  
+
+    @Operation(summary = "OAuth 로그인/회원가입", description = "OAuth 제공자를 통한 소셜 로그인 및 자동 회원가입")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "OAuth 제공자 오류")
+    @PostMapping("oauth/{provider}")
+    public ResponseEntity<ApiResponse<OAuthLoginResponse>> oauthLogin(
+            @Parameter(description = "OAuth 제공자 (KAKAO, GOOGLE, NAVER, APPLE)", required = true)
+            @PathVariable("provider") String providerStr,
+            @Parameter(description = "OAuth Access Token", required = true)
+            @RequestBody OAuthLoginRequest request) {
+
+        OAuthProvider provider = OAuthProvider.valueOf(providerStr.toUpperCase());
+        OAuthLoginResponse response = oAuthService.login(provider, request.getAccessToken());
+
+        String message = response.isNewUser() ? "회원가입이 완료되었습니다." : "로그인에 성공했습니다.";
+        return ResponseEntity.ok(ApiResponse.res(200, message, response));
+    }
+
 }
