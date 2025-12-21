@@ -2,6 +2,8 @@ package com.app.replant.service.auth;
 
 
 import com.app.replant.controller.dto.*;
+import com.app.replant.domain.reant.entity.Reant;
+import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.UserRole;
 import com.app.replant.domain.user.enums.UserStatus;
@@ -25,6 +27,7 @@ import java.util.Optional;
 @Slf4j
 public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
+    private final ReantRepository reantRepository;
     private final TokenProvider tokenProvider;
     private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
@@ -71,7 +74,14 @@ public class AuthServiceImpl implements AuthService {
                     .status(UserStatus.ACTIVE)
                     .build();
 
-            userRepository.save(user);
+            User savedUser = userRepository.save(user);
+
+            // 회원가입 시 기본 Reant(펫) 생성
+            Reant reant = Reant.builder()
+                    .user(savedUser)
+                    .name("리앤트")
+                    .build();
+            reantRepository.save(reant);
 
             log.info("회원가입 완료: {}", joinDto.getId());
 
