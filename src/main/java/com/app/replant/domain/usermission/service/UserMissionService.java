@@ -5,7 +5,9 @@ import com.app.replant.domain.badge.repository.UserBadgeRepository;
 import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.custommission.repository.CustomMissionRepository;
 import com.app.replant.domain.mission.entity.Mission;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.recommendation.service.RecommendationService;
@@ -39,6 +41,7 @@ public class UserMissionService {
     private final UserMissionRepository userMissionRepository;
     private final MissionVerificationRepository verificationRepository;
     private final UserRepository userRepository;
+    private final MissionRepository missionRepository;
     private final CustomMissionRepository customMissionRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final ReantRepository reantRepository;
@@ -78,6 +81,36 @@ public class UserMissionService {
 
         UserMission saved = userMissionRepository.save(userMission);
         return UserMissionResponse.from(saved);
+    }
+
+    @Transactional
+    public UserMissionResponse addMission(Long userId, AddMissionRequest request) {
+        User user = findUserById(userId);
+        Mission mission = missionRepository.findById(request.getMissionId())
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+
+        LocalDateTime now = LocalDateTime.now();
+        int durationDays = getDurationDays(mission.getType());
+        LocalDateTime dueDate = now.plusDays(durationDays);
+
+        UserMission userMission = UserMission.builder()
+                .user(user)
+                .mission(mission)
+                .assignedAt(now)
+                .dueDate(dueDate)
+                .status(UserMissionStatus.ASSIGNED)
+                .build();
+
+        UserMission saved = userMissionRepository.save(userMission);
+        return UserMissionResponse.from(saved);
+    }
+
+    private int getDurationDays(MissionType type) {
+        return switch (type) {
+            case DAILY -> 1;
+            case WEEKLY -> 7;
+            case MONTHLY -> 30;
+        };
     }
 
     @Transactional

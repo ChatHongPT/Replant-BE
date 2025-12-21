@@ -45,12 +45,22 @@ public class UserMissionController {
     }
 
     @Operation(summary = "커스텀 미션 추가")
-    @PostMapping
+    @PostMapping("/custom")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<UserMissionResponse> addCustomMission(
             @AuthenticationPrincipal Long userId,
             @RequestBody @Valid AddCustomMissionRequest request) {
         UserMissionResponse mission = userMissionService.addCustomMission(userId, request);
+        return ApiResponse.success(mission);
+    }
+
+    @Operation(summary = "시스템 미션 추가")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<UserMissionResponse> addMission(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid AddMissionRequest request) {
+        UserMissionResponse mission = userMissionService.addMission(userId, request);
         return ApiResponse.success(mission);
     }
 
