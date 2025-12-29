@@ -38,8 +38,8 @@ public class MissionDistributionScheduler {
     private final NotificationRepository notificationRepository;
 
     private static final int DAILY_MISSION_COUNT = 3;
-    private static final int WEEKLY_MISSION_COUNT = 3;
-    private static final int MONTHLY_MISSION_COUNT = 3;
+    private static final int WEEKLY_MISSION_COUNT = 2;
+    private static final int MONTHLY_MISSION_COUNT = 1;
 
     /**
      * 매일 오전 7시 (KST = UTC+9) 일간 미션 배분

@@ -76,4 +76,23 @@ public class Mission {
         this.isActive = isActive != null ? isActive : true;
         this.createdAt = LocalDateTime.now();
     }
+
+    public void update(String title, String description, MissionType type, VerificationType verificationType,
+                       BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
+                       Integer requiredMinutes, Integer expReward, Integer badgeDurationDays) {
+        this.title = title;
+        this.description = description;
+        this.type = type;
+        this.verificationType = verificationType;
+        this.gpsLatitude = gpsLatitude;
+        this.gpsLongitude = gpsLongitude;
+        this.gpsRadiusMeters = gpsRadiusMeters != null ? gpsRadiusMeters : 100;
+        this.requiredMinutes = requiredMinutes;
+        this.expReward = expReward != null ? expReward : 10;
+        this.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;
+    }
+
+    public void setActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
 }

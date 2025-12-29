@@ -84,7 +84,7 @@ public class User extends BaseEntity {
     private LocalDate lastLoginDate;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<UserOAuth> oauthList = new ArrayList<>();
+    private List<UserOauth> oauthList = new ArrayList<>();
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private com.app.replant.domain.reant.entity.Reant reant;
