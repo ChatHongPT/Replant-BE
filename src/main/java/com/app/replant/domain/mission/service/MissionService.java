@@ -3,8 +3,7 @@ package com.app.replant.domain.mission.service;
 import com.app.replant.domain.badge.repository.UserBadgeRepository;
 import com.app.replant.domain.mission.dto.*;
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.enums.MissionType;
-import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.enums.*;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.qna.entity.MissionQnA;
 import com.app.replant.domain.qna.entity.MissionQnAAnswer;
@@ -41,6 +40,23 @@ public class MissionService {
     public Page<MissionResponse> getMissions(MissionType type, VerificationType verificationType, Pageable pageable) {
         return missionRepository.findMissions(type, verificationType, pageable)
                 .map(MissionResponse::from);
+    }
+
+    /**
+     * 사용자 맞춤 필터링된 미션 목록 조회
+     */
+    public Page<MissionResponse> getFilteredMissions(
+            MissionType type,
+            VerificationType verificationType,
+            WorryType worryType,
+            AgeRange ageRange,
+            GenderType genderType,
+            RegionType regionType,
+            DifficultyLevel difficultyLevel,
+            Pageable pageable) {
+        return missionRepository.findFilteredMissions(
+                type, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable
+        ).map(MissionResponse::from);
     }
 
     public MissionResponse getMission(Long missionId) {
@@ -167,6 +183,8 @@ public class MissionService {
                 // 사용자 맞춤 필드
                 .worryType(request.getWorryType())
                 .ageRanges(request.getAgeRanges())
+                .genderType(request.getGenderType())
+                .regionType(request.getRegionType())
                 .placeType(request.getPlaceType())
                 .difficultyLevel(request.getDifficultyLevel())
                 .build();
@@ -193,6 +211,8 @@ public class MissionService {
                 // 사용자 맞춤 필드
                 request.getWorryType(),
                 request.getAgeRanges(),
+                request.getGenderType(),
+                request.getRegionType(),
                 request.getPlaceType(),
                 request.getDifficultyLevel()
         );
@@ -225,6 +245,8 @@ public class MissionService {
                         // 사용자 맞춤 필드
                         .worryType(request.getWorryType())
                         .ageRanges(request.getAgeRanges())
+                        .genderType(request.getGenderType())
+                        .regionType(request.getRegionType())
                         .placeType(request.getPlaceType())
                         .difficultyLevel(request.getDifficultyLevel())
                         .build())

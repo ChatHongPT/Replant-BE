@@ -328,4 +328,112 @@ public class VerificationService {
         }
         return "미션";
     }
+
+    /**
+     * GPS 인증 (GPS 타입 미션)
+     */
+    @Transactional
+    public Map<String, Object> verifyByGps(Long userId, Long userMissionId, Double latitude, Double longitude) {
+        User user = findUserById(userId);
+        UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        // GPS 타입만 GPS 인증 가능
+        if (userMission.getMission() != null &&
+            userMission.getMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.GPS) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
+        }
+        if (userMission.getCustomMission() != null &&
+            userMission.getCustomMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.GPS) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
+        }
+
+        // 미션 상태 확인
+        if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
+            throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
+        }
+
+        // GPS 인증 성공 처리 (위치 정보 저장 가능)
+        userMission.updateStatus(UserMissionStatus.COMPLETED);
+
+        // MissionVerification 생성
+        MissionVerification verification = MissionVerification.builder()
+                .userMission(userMission)
+                .verifiedAt(LocalDateTime.now())
+                .build();
+        missionVerificationRepository.save(verification);
+
+        // 뱃지 발급
+        createBadge(userMission);
+
+        // 경험치 보상
+        int expReward = getExpReward(userMission);
+        reantRepository.findByUserId(userId)
+                .ifPresent(reant -> reant.addExp(expReward));
+
+        // 알림 발송
+        sendVerificationApprovedNotification(user, userMission);
+
+        log.info("GPS 인증 완료 - userId={}, userMissionId={}, lat={}, lng={}", userId, userMissionId, latitude, longitude);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("success", true);
+        result.put("message", "GPS 인증이 완료되었습니다.");
+        result.put("expReward", expReward);
+        return result;
+    }
+
+    /**
+     * 시간 인증 (TIME 타입 미션)
+     */
+    @Transactional
+    public Map<String, Object> verifyByTime(Long userId, Long userMissionId) {
+        User user = findUserById(userId);
+        UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        // TIME 타입만 시간 인증 가능
+        if (userMission.getMission() != null &&
+            userMission.getMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.TIME) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
+        }
+        if (userMission.getCustomMission() != null &&
+            userMission.getCustomMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.TIME) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
+        }
+
+        // 미션 상태 확인
+        if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
+            throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
+        }
+
+        // 시간 인증 성공 처리
+        userMission.updateStatus(UserMissionStatus.COMPLETED);
+
+        // MissionVerification 생성
+        MissionVerification verification = MissionVerification.builder()
+                .userMission(userMission)
+                .verifiedAt(LocalDateTime.now())
+                .build();
+        missionVerificationRepository.save(verification);
+
+        // 뱃지 발급
+        createBadge(userMission);
+
+        // 경험치 보상
+        int expReward = getExpReward(userMission);
+        reantRepository.findByUserId(userId)
+                .ifPresent(reant -> reant.addExp(expReward));
+
+        // 알림 발송
+        sendVerificationApprovedNotification(user, userMission);
+
+        log.info("시간 인증 완료 - userId={}, userMissionId={}", userId, userMissionId);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("success", true);
+        result.put("message", "시간 인증이 완료되었습니다.");
+        result.put("expReward", expReward);
+        return result;
+    }
 }

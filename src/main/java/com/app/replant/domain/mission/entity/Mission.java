@@ -65,7 +65,7 @@ public class Mission {
     // ============ 사용자 맞춤 필드들 ============
 
     // 고민 종류: RE_EMPLOYMENT(재취업), JOB_PREPARATION(취업준비), ENTRANCE_EXAM(입시),
-    //          ADVANCEMENT(진학), RETURN_TO_SCHOOL(복학), RELATIONSHIP(연애)
+    //          ADVANCEMENT(진학), RETURN_TO_SCHOOL(복학), RELATIONSHIP(연애), SELF_MANAGEMENT(자기관리)
     @Enumerated(EnumType.STRING)
     @Column(name = "worry_type", length = 20)
     private WorryType worryType;
@@ -76,6 +76,16 @@ public class Mission {
     @Enumerated(EnumType.STRING)
     @Column(name = "age_range", length = 20)
     private List<AgeRange> ageRanges = new ArrayList<>();
+
+    // 성별: MALE(남성), FEMALE(여성), ALL(전체)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender_type", length = 10)
+    private GenderType genderType;
+
+    // 지역: 광역자치단체 단위
+    @Enumerated(EnumType.STRING)
+    @Column(name = "region_type", length = 30)
+    private RegionType regionType;
 
     // 장소: HOME(집), OUTDOOR(야외), INDOOR(실내)
     @Enumerated(EnumType.STRING)
@@ -91,7 +101,8 @@ public class Mission {
     private Mission(String title, String description, MissionType type, VerificationType verificationType,
                     BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                     Integer requiredMinutes, Integer expReward, Integer badgeDurationDays, Boolean isActive,
-                    WorryType worryType, List<AgeRange> ageRanges, PlaceType placeType, DifficultyLevel difficultyLevel) {
+                    WorryType worryType, List<AgeRange> ageRanges, GenderType genderType, RegionType regionType,
+                    PlaceType placeType, DifficultyLevel difficultyLevel) {
         this.title = title;
         this.description = description;
         this.type = type;
@@ -107,6 +118,8 @@ public class Mission {
         // 사용자 맞춤 필드
         this.worryType = worryType;
         this.ageRanges = ageRanges != null ? new ArrayList<>(ageRanges) : new ArrayList<>();
+        this.genderType = genderType != null ? genderType : GenderType.ALL;
+        this.regionType = regionType != null ? regionType : RegionType.ALL;
         this.placeType = placeType != null ? placeType : PlaceType.HOME;
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL1;
     }
@@ -114,7 +127,8 @@ public class Mission {
     public void update(String title, String description, MissionType type, VerificationType verificationType,
                        BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                        Integer requiredMinutes, Integer expReward, Integer badgeDurationDays,
-                       WorryType worryType, List<AgeRange> ageRanges, PlaceType placeType, DifficultyLevel difficultyLevel) {
+                       WorryType worryType, List<AgeRange> ageRanges, GenderType genderType, RegionType regionType,
+                       PlaceType placeType, DifficultyLevel difficultyLevel) {
         this.title = title;
         this.description = description;
         this.type = type;
@@ -128,6 +142,8 @@ public class Mission {
         // 사용자 맞춤 필드
         this.worryType = worryType;
         this.ageRanges = ageRanges != null ? new ArrayList<>(ageRanges) : new ArrayList<>();
+        this.genderType = genderType != null ? genderType : GenderType.ALL;
+        this.regionType = regionType != null ? regionType : RegionType.ALL;
         this.placeType = placeType != null ? placeType : PlaceType.HOME;
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL1;
     }

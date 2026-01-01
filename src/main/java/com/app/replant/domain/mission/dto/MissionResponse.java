@@ -33,6 +33,10 @@ public class MissionResponse {
     private WorryType worryType;
     // 연령대 (복수 선택 가능)
     private List<AgeRange> ageRanges;
+    // 성별
+    private GenderType genderType;
+    // 지역
+    private RegionType regionType;
     // 장소
     private PlaceType placeType;
     // 난이도
@@ -55,6 +59,8 @@ public class MissionResponse {
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())
+                .genderType(mission.getGenderType())
+                .regionType(mission.getRegionType())
                 .placeType(mission.getPlaceType())
                 .difficultyLevel(mission.getDifficultyLevel())
                 .build();
@@ -79,6 +85,8 @@ public class MissionResponse {
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())
+                .genderType(mission.getGenderType())
+                .regionType(mission.getRegionType())
                 .placeType(mission.getPlaceType())
                 .difficultyLevel(mission.getDifficultyLevel())
                 .build();

@@ -51,11 +51,17 @@ public class MissionRequest {
     // ============ 사용자 맞춤 필드들 ============
 
     // 고민 종류: RE_EMPLOYMENT(재취업), JOB_PREPARATION(취업준비), ENTRANCE_EXAM(입시),
-    //          ADVANCEMENT(진학), RETURN_TO_SCHOOL(복학), RELATIONSHIP(연애)
+    //          ADVANCEMENT(진학), RETURN_TO_SCHOOL(복학), RELATIONSHIP(연애), SELF_MANAGEMENT(자기관리)
     private WorryType worryType;
 
     // 연령대 (복수 선택 가능)
     private List<AgeRange> ageRanges;
+
+    // 성별: MALE(남성), FEMALE(여성), ALL(전체)
+    private GenderType genderType;
+
+    // 지역: 광역자치단체 단위
+    private RegionType regionType;
 
     // 장소: HOME(집), OUTDOOR(야외), INDOOR(실내)
     private PlaceType placeType;
