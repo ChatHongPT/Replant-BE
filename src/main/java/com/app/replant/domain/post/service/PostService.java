@@ -128,7 +128,8 @@ public class PostService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        postRepository.delete(post);
+        // Soft delete (delFlag를 true로 설정)
+        post.softDelete();
     }
 
     // Comment methods
@@ -178,7 +179,7 @@ public class PostService {
     }
 
     private Post findPostById(Long postId) {
-        return postRepository.findById(postId)
+        return postRepository.findByIdAndNotDeleted(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
     }
 
