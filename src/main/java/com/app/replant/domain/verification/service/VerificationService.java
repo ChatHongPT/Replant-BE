@@ -185,6 +185,9 @@ public class VerificationService {
 
         verificationVoteRepository.save(vote);
 
+        // 투표 알림 발송 (본인이 아닌 경우)
+        sendVoteNotification(post.getUser(), voter, post, request.getVote());
+
         // 카운트 증가 및 상태 변경 (Entity 메서드 활용)
         boolean isApprove = request.getVote() == VerificationVote.VoteType.APPROVE;
         post.addVote(isApprove);
@@ -328,6 +331,39 @@ public class VerificationService {
             return userMission.getCustomMission().getTitle();
         }
         return "미션";
+    }
+
+    /**
+     * 투표 알림 발송 (본인 글에 투표 시 알림 안 함 - 이미 위에서 체크됨)
+     */
+    private void sendVoteNotification(User postAuthor, User voter, VerificationPost post, VerificationVote.VoteType voteType) {
+        String missionTitle = getMissionTitle(post.getUserMission());
+        String voteAction = voteType == VerificationVote.VoteType.APPROVE ? "응원" : "반대";
+
+        String title = "인증글에 투표가 있습니다";
+        String content = String.format("%s님이 '%s' 인증글에 %s 투표를 했습니다.",
+                voter.getNickname(), truncateMissionTitle(missionTitle, 15), voteAction);
+
+        notificationService.createAndPushNotification(
+                postAuthor,
+                "VOTE",
+                title,
+                content,
+                "VERIFICATION",
+                post.getId()
+        );
+
+        log.info("투표 알림 발송 - verificationId={}, voterId={}, postAuthorId={}, voteType={}",
+                post.getId(), voter.getId(), postAuthor.getId(), voteType);
+    }
+
+    /**
+     * 미션 제목 자르기
+     */
+    private String truncateMissionTitle(String title, int maxLength) {
+        if (title == null) return "미션";
+        if (title.length() <= maxLength) return title;
+        return title.substring(0, maxLength) + "...";
     }
 
     /**
