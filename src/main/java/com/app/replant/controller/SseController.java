@@ -238,9 +238,17 @@ public class SseController {
             return null;
         }
         try {
-            com.app.replant.jwt.MemberDetail principal = (com.app.replant.jwt.MemberDetail) authentication
-                    .getPrincipal();
-            return principal.getMember().getId();
+            // UserDetail 또는 MemberDetail 모두 지원
+            Object principal = authentication.getPrincipal();
+
+            if (principal instanceof com.app.replant.domain.user.security.UserDetail) {
+                return ((com.app.replant.domain.user.security.UserDetail) principal).getId();
+            } else if (principal instanceof com.app.replant.jwt.MemberDetail) {
+                return ((com.app.replant.jwt.MemberDetail) principal).getMember().getId();
+            } else {
+                log.warn("지원되지 않는 principal 타입: {}", principal.getClass().getName());
+                return null;
+            }
         } catch (Exception e) {
             log.error("MemberId 추출 실패", e);
             return null;
