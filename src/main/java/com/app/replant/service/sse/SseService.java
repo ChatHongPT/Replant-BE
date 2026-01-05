@@ -109,6 +109,23 @@ public class SseService {
         }
     }
 
+    public void sendMissionNotification(Long memberId, String missionType, int missionCount) {
+        try {
+            Map<String, Object> data = new HashMap<>();
+            data.put("title", "미션 알림");
+            data.put("message", String.format("%d개의 %s 미션이 배정되었습니다. 지금 확인해보세요!", missionCount, missionType));
+            data.put("missionType", missionType);
+            data.put("missionCount", missionCount);
+            data.put("actionUrl", "/missions");
+
+            String jsonData = objectMapper.writeValueAsString(data);
+            sendToUser(memberId, "MISSION", jsonData);
+            log.info("MISSION 알림 전송 - memberId: {}, type: {}, count: {}", memberId, missionType, missionCount);
+        } catch (Exception e) {
+            log.error("MISSION 알림 전송 실패 - memberId: {}", memberId, e);
+        }
+    }
+
     private void handleEmitterRemoval(Long memberId, String reason) {
         emitters.remove(memberId);
         log.info("SSE emitter 제거 - memberId: {}, 이유: {}, 현재 연결 수: {}", memberId, reason, emitters.size());
