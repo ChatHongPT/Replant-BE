@@ -373,6 +373,7 @@ public class VerificationService {
 
     /**
      * GPS 인증 (GPS 타입 미션)
+     * Haversine 공식을 사용하여 거리 검증
      */
     @Transactional
     public Map<String, Object> verifyByGps(Long userId, Long userMissionId, Double latitude, Double longitude) {
@@ -395,7 +396,45 @@ public class VerificationService {
             throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
         }
 
-        // GPS 인증 성공 처리 (위치 정보 저장 가능)
+        // GPS 거리 검증
+        java.math.BigDecimal targetLat;
+        java.math.BigDecimal targetLng;
+        Integer radiusMeters;
+
+        if (userMission.getMission() != null) {
+            targetLat = userMission.getMission().getGpsLatitude();
+            targetLng = userMission.getMission().getGpsLongitude();
+            radiusMeters = userMission.getMission().getGpsRadiusMeters();
+        } else if (userMission.getCustomMission() != null) {
+            targetLat = userMission.getCustomMission().getGpsLatitude();
+            targetLng = userMission.getCustomMission().getGpsLongitude();
+            radiusMeters = userMission.getCustomMission().getGpsRadiusMeters();
+        } else {
+            throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
+        }
+
+        // 목표 위치가 설정되어 있는 경우 거리 검증
+        if (targetLat != null && targetLng != null) {
+            int distance = calculateDistance(
+                    java.math.BigDecimal.valueOf(latitude),
+                    java.math.BigDecimal.valueOf(longitude),
+                    targetLat,
+                    targetLng
+            );
+
+            int allowedRadius = radiusMeters != null ? radiusMeters : 100; // 기본값 100m
+
+            if (distance > allowedRadius) {
+                log.warn("GPS 인증 실패 - 거리 초과: userId={}, distance={}m, allowedRadius={}m",
+                        userId, distance, allowedRadius);
+                throw new CustomException(ErrorCode.GPS_OUT_OF_RANGE,
+                        String.format("목표 위치에서 %dm 떨어져 있습니다. (허용 범위: %dm)", distance, allowedRadius));
+            }
+
+            log.info("GPS 거리 검증 성공 - distance={}m, allowedRadius={}m", distance, allowedRadius);
+        }
+
+        // GPS 인증 성공 처리
         userMission.updateStatus(UserMissionStatus.COMPLETED);
 
         // MissionVerification 생성
@@ -426,10 +465,31 @@ public class VerificationService {
     }
 
     /**
+     * Haversine 공식을 사용한 두 지점 간 거리 계산 (미터 단위)
+     */
+    private int calculateDistance(java.math.BigDecimal lat1, java.math.BigDecimal lon1,
+                                  java.math.BigDecimal lat2, java.math.BigDecimal lon2) {
+        final int EARTH_RADIUS = 6371000; // 지구 반경 (미터)
+
+        double dLat = Math.toRadians(lat2.subtract(lat1).doubleValue());
+        double dLon = Math.toRadians(lon2.subtract(lon1).doubleValue());
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1.doubleValue())) *
+                Math.cos(Math.toRadians(lat2.doubleValue())) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return (int) (EARTH_RADIUS * c);
+    }
+
+    /**
      * 시간 인증 (TIME 타입 미션)
+     * 시작/종료 시간을 받아 소요 시간 검증
      */
     @Transactional
-    public Map<String, Object> verifyByTime(Long userId, Long userMissionId) {
+    public Map<String, Object> verifyByTime(Long userId, Long userMissionId, LocalDateTime startedAt, LocalDateTime endedAt) {
         User user = findUserById(userId);
         UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
@@ -447,6 +507,40 @@ public class VerificationService {
         // 미션 상태 확인
         if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
             throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
+        }
+
+        // 시간 검증
+        Integer requiredMinutes;
+        if (userMission.getMission() != null) {
+            requiredMinutes = userMission.getMission().getRequiredMinutes();
+        } else if (userMission.getCustomMission() != null) {
+            requiredMinutes = userMission.getCustomMission().getRequiredMinutes();
+        } else {
+            throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
+        }
+
+        // 시작/종료 시간이 전달된 경우 시간 검증
+        if (startedAt != null && endedAt != null) {
+            // 종료 시간이 시작 시간보다 이전인 경우
+            if (endedAt.isBefore(startedAt)) {
+                throw new CustomException(ErrorCode.INVALID_TIME_DATA,
+                        "종료 시간이 시작 시간보다 이전입니다.");
+            }
+
+            java.time.Duration duration = java.time.Duration.between(startedAt, endedAt);
+            int actualMinutes = (int) duration.toMinutes();
+
+            // 필요 시간이 설정되어 있는 경우 검증
+            if (requiredMinutes != null && requiredMinutes > 0) {
+                if (actualMinutes < requiredMinutes) {
+                    log.warn("시간 인증 실패 - 시간 부족: userId={}, actualMinutes={}분, requiredMinutes={}분",
+                            userId, actualMinutes, requiredMinutes);
+                    throw new CustomException(ErrorCode.TIME_NOT_ENOUGH,
+                            String.format("실제 시간: %d분, 필요 시간: %d분", actualMinutes, requiredMinutes));
+                }
+            }
+
+            log.info("시간 검증 성공 - actualMinutes={}분, requiredMinutes={}분", actualMinutes, requiredMinutes);
         }
 
         // 시간 인증 성공 처리
@@ -477,5 +571,14 @@ public class VerificationService {
         result.put("message", "시간 인증이 완료되었습니다.");
         result.put("expReward", expReward);
         return result;
+    }
+
+    /**
+     * 시간 인증 (TIME 타입 미션) - 단순 인증 (시간 파라미터 없이)
+     * 하위 호환성을 위해 유지
+     */
+    @Transactional
+    public Map<String, Object> verifyByTime(Long userId, Long userMissionId) {
+        return verifyByTime(userId, userMissionId, null, null);
     }
 }
