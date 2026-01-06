@@ -1,14 +1,14 @@
 package com.app.replant.controller;
 
 import com.app.replant.controller.dto.SseSendRequestDto;
-import com.app.replant.entity.Member;
+import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.user.security.UserDetail;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
-import com.app.replant.repository.member.MemberRepository;
 import com.app.replant.service.sse.SseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -31,10 +31,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Slf4j
 public class SseController {
 
-    @Value("${FRONTEND_URL}")
-    private String frontendUrl;
-
-    private final MemberRepository memberRepository;
+    private final UserRepository userRepository;
     private final SseService sseService;
     private final ObjectMapper objectMapper;
 
@@ -48,16 +45,19 @@ public class SseController {
     public SseEmitter connect(
             @Parameter(hidden = true) Authentication authentication,
             HttpServletResponse response) {
+        // SecurityConfig에서 authenticated()로 설정되어 있으므로
+        // 여기까지 도달했다면 인증은 통과한 상태
+        // 하지만 혹시 모를 경우를 대비해 체크
         if (authentication == null) {
-            log.warn("SSE 연결 실패: 인증 정보 없음");
-            return null;
+            log.error("SSE 연결 실패: 인증 정보 없음 (SecurityConfig 설정 확인 필요)");
+            throw new IllegalStateException("인증 정보가 없습니다");
         }
 
         Long memberId = getMemberId(authentication);
 
         if (memberId == null) {
-            log.warn("SSE 연결 실패: memberId 추출 실패");
-            return null;
+            log.error("SSE 연결 실패: memberId 추출 실패");
+            throw new IllegalStateException("사용자 ID를 추출할 수 없습니다");
         }
 
         // SSE 응답 헤더 설정
@@ -66,11 +66,8 @@ public class SseController {
         response.setHeader("Connection", "keep-alive");
         response.setHeader("X-Accel-Buffering", "no"); // Nginx 버퍼링 방지
 
-        // CORS 헤더 설정
-        response.setHeader("Access-Control-Allow-Origin", frontendUrl);
-        response.setHeader("Access-Control-Allow-Credentials", "true");
-        response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-        response.setHeader("Access-Control-Allow-Headers", "*");
+        // CORS는 SecurityConfig에서 중앙 관리하므로 여기서는 제거
+        // 중복 설정 시 "multiple values" 오류 발생 가능
 
         SseEmitter emitter = sseService.createEmitter(memberId);
 
@@ -100,14 +97,14 @@ public class SseController {
             @Parameter(description = "메시지 전송 요청 정보", required = true) @Valid @RequestBody SseSendRequestDto requestDto) {
         log.info("SSE 메시지 전송 요청: memberId={}, message={}", requestDto.getMemberId(), requestDto.getMessage());
 
-        // 이메일로 회원 찾기
-        Member member = memberRepository.findByMemberId(requestDto.getMemberId())
+        // 이메일로 사용자 찾기
+        User user = userRepository.findByEmail(requestDto.getMemberId())
                 .orElseThrow(() -> {
-                    log.warn("SSE 메시지 전송 실패: 회원을 찾을 수 없음 - memberId={}", requestDto.getMemberId());
+                    log.warn("SSE 메시지 전송 실패: 사용자를 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        Long memberId = member.getId();
+        Long memberId = user.getId();
         boolean sent = sseService.sendToUser(memberId, "message", requestDto.getMessage());
 
         if (sent) {
@@ -148,14 +145,14 @@ public class SseController {
     }
 
     /**
-     * 테스트용: REPORT 알림 전송
+     * 테스트용: MISSION 알림 전송
      */
-    @Operation(summary = "REPORT 타입 알림 전송", description = "리포트 알림을 전송합니다. 프론트엔드에서 '두리가 N월 소비 리포트를 가져왔습니다.' 메시지가 표시되고, /report로 이동합니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "REPORT 알림 전송 성공")
+    @Operation(summary = "MISSION 타입 알림 전송", description = "미션 알림을 전송합니다. 프론트엔드에서 'N개의 미션이 배정되었습니다.' 메시지가 표시되고, /missions로 이동합니다")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "MISSION 알림 전송 성공")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보가 없습니다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요")
-    @GetMapping("/test/report")
-    public ResponseEntity<String> testReportNotification(
+    @GetMapping("/test/mission")
+    public ResponseEntity<String> testMissionNotification(
             @Parameter(hidden = true) Authentication authentication) {
         Long memberId = getMemberId(authentication);
 
@@ -167,9 +164,9 @@ public class SseController {
             return ResponseEntity.status(404).body("SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요.");
         }
 
-        int currentMonth = java.time.LocalDate.now().getMonthValue();
-        sseService.sendReportNotification(memberId, currentMonth);
-        return ResponseEntity.ok("REPORT 알림 전송 완료 (월: " + currentMonth + ")");
+        // 테스트용: 일간 미션 3개 배정 알림
+        sseService.sendMissionNotification(memberId, "일간", 3);
+        return ResponseEntity.ok("MISSION 알림 전송 완료 (일간 미션 3개)");
     }
 
     /**
@@ -238,11 +235,22 @@ public class SseController {
             return null;
         }
         try {
-            com.app.replant.jwt.MemberDetail principal = (com.app.replant.jwt.MemberDetail) authentication
-                    .getPrincipal();
-            return principal.getMember().getId();
+            Object principal = authentication.getPrincipal();
+
+            // UserDetail (새로운 방식) 지원
+            if (principal instanceof UserDetail) {
+                return ((UserDetail) principal).getId();
+            }
+
+            // MemberDetail (레거시) 지원 - 하위 호환성
+            if (principal instanceof com.app.replant.jwt.MemberDetail) {
+                return ((com.app.replant.jwt.MemberDetail) principal).getId();
+            }
+
+            log.warn("지원하지 않는 Principal 타입: {}", principal.getClass().getName());
+            return null;
         } catch (Exception e) {
-            log.error("MemberId 추출 실패", e);
+            log.error("사용자 ID 추출 실패", e);
             return null;
         }
     }

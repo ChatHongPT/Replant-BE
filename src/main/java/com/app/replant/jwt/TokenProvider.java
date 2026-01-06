@@ -52,13 +52,13 @@ public class TokenProvider {
                 .setSubject(principal.getUsername())       // payload "sub": "email"
                 .claim(AUTHORITIES_KEY, authorities)        // payload "auth": "ROLE_USER"
                 .setExpiration(accessTokenExpiresIn)        // payload "exp": 1516239022 (예시)
-                .signWith(key, SignatureAlgorithm.HS512)    // header "alg": "HS512"
+                .signWith(key)                             // header "alg": "HS512" (Key 타입에서 자동 감지)
                 .compact();
 
         // Refresh Token 생성
         String refreshToken = Jwts.builder()
                 .setExpiration(new Date(now + REFRESH_TOKEN_EXPIRE_TIME))
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(key)                              // Key 타입에서 자동으로 알고리즘 감지
                 .compact();
 
         return TokenDto.builder()
@@ -139,6 +139,26 @@ public class TokenProvider {
             // 서명 오류, 형식 오류 등
             log.error("토큰 파싱 실패: {}", e.getMessage());
             throw e;  // JwtFilter에서 잡히도록 다시 던짐
+        }
+    }
+
+    /**
+     * 토큰의 남은 유효기간을 초 단위로 계산
+     * @param token JWT 토큰
+     * @return 남은 유효기간 (초 단위), 만료되었거나 파싱 실패 시 0 반환
+     */
+    public long getRemainingExpirationTime(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            Date expiration = claims.getExpiration();
+            if (expiration == null) {
+                return 0;
+            }
+            long remainingTime = (expiration.getTime() - System.currentTimeMillis()) / 1000;
+            return Math.max(0, remainingTime);
+        } catch (Exception e) {
+            log.debug("토큰 만료 시간 계산 실패: {}", e.getMessage());
+            return 0;
         }
     }
 }

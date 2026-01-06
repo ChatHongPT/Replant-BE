@@ -111,45 +111,20 @@ public class SseService {
         }
     }
 
-    /**
-     * 알림 엔티티를 SSE로 실시간 전송
-     * @param userId 수신자 ID
-     * @param notification 알림 엔티티
-     * @return 전송 성공 여부
-     */
-    public boolean sendNotification(Long userId, Notification notification) {
+    public void sendMissionNotification(Long memberId, String missionType, int missionCount) {
         try {
-            NotificationResponse response = NotificationResponse.from(notification);
-            String jsonData = objectMapper.writeValueAsString(response);
-            boolean sent = sendToUser(userId, "NOTIFICATION", jsonData);
-            if (sent) {
-                log.info("SSE 알림 전송 성공 - userId: {}, type: {}, title: {}",
-                        userId, notification.getType(), notification.getTitle());
-            }
-            return sent;
-        } catch (Exception e) {
-            log.error("SSE 알림 전송 실패 - userId: {}", userId, e);
-            return false;
-        }
-    }
+            Map<String, Object> data = new HashMap<>();
+            data.put("title", "미션 알림");
+            data.put("message", String.format("%d개의 %s 미션이 배정되었습니다. 지금 확인해보세요!", missionCount, missionType));
+            data.put("missionType", missionType);
+            data.put("missionCount", missionCount);
+            data.put("actionUrl", "/missions");
 
-    /**
-     * 알림 응답 DTO를 SSE로 실시간 전송
-     * @param userId 수신자 ID
-     * @param response 알림 응답 DTO
-     * @return 전송 성공 여부
-     */
-    public boolean sendNotificationResponse(Long userId, NotificationResponse response) {
-        try {
-            String jsonData = objectMapper.writeValueAsString(response);
-            boolean sent = sendToUser(userId, "NOTIFICATION", jsonData);
-            if (sent) {
-                log.info("SSE 알림 전송 성공 - userId: {}, type: {}", userId, response.getType());
-            }
-            return sent;
+            String jsonData = objectMapper.writeValueAsString(data);
+            sendToUser(memberId, "MISSION", jsonData);
+            log.info("MISSION 알림 전송 - memberId: {}, type: {}, count: {}", memberId, missionType, missionCount);
         } catch (Exception e) {
-            log.error("SSE 알림 전송 실패 - userId: {}", userId, e);
-            return false;
+            log.error("MISSION 알림 전송 실패 - memberId: {}", memberId, e);
         }
     }
 

@@ -23,7 +23,7 @@ public interface AuthService {
 
     User findUserByNicknameAndPhone(MemberSearchIdDto memberSearchIdDto);
 
-    void logout(String email);
+    void logout(String email, String accessToken);
 
     void resetPassword(ResetPasswordDto resetPasswordDto);
 

@@ -72,7 +72,7 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
     
     // Database
-    runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'com.mysql:mysql-connector-j'
     runtimeOnly 'com.h2database:h2'
 
     // Flyway Migration
