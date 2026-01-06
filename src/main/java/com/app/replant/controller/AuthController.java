@@ -63,9 +63,9 @@ public class AuthController {
     @Operation(summary = "토큰 재발급", description = "Refresh Token으로 새로운 Access Token을 발급받습니다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 재발급 성공")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "유효하지 않은 토큰")
-    @PostMapping("reissue")
-    public ResponseEntity<TokenDto> reissue(@RequestBody @Valid TokenRequestDto tokenRequestDto) {
-        return ResponseEntity.ok(authService.reissue(tokenRequestDto));
+    @PostMapping("refresh")
+    public ResponseEntity<TokenDto> refresh(@RequestBody @Valid TokenRequestDto tokenRequestDto) {
+        return ResponseEntity.ok(authService.refresh(tokenRequestDto));
     }
 
     @Operation(summary = "현재 로그인한 사용자 정보", description = "JWT 토큰으로 현재 로그인한 사용자의 정보를 조회합니다")

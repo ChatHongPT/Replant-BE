@@ -19,7 +19,7 @@ public interface AuthService {
 
     Boolean checkId(String email);
 
-    TokenDto reissue(TokenRequestDto tokenRequestDto);
+    TokenDto refresh(TokenRequestDto tokenRequestDto);
 
     User findUserByNicknameAndPhone(MemberSearchIdDto memberSearchIdDto);
 

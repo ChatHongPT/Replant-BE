@@ -178,7 +178,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public TokenDto reissue(TokenRequestDto tokenRequestDto) {
+    public TokenDto refresh(TokenRequestDto tokenRequestDto) {
         // 1. Refresh Token null/empty 체크
         if (tokenRequestDto.getRefreshToken() == null || tokenRequestDto.getRefreshToken().isEmpty()) {
             throw new CustomException(ErrorCode.NO_TOKEN);
