@@ -6,6 +6,7 @@ import com.app.replant.jwt.JwtAuthenticationEntryPoint;
 import com.app.replant.jwt.TokenProvider;
 import com.app.replant.security.RateLimitingFilter;
 import com.app.replant.security.XssProtectionFilter;
+import com.app.replant.service.token.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -25,13 +26,13 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 @EnableWebSecurity
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final TokenProvider tokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final RateLimitingFilter rateLimitingFilter;
@@ -50,17 +51,28 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 허용할 오리진 설정
-        // 프로덕션: 실제 도메인만 허용
-        // 개발: 특정 포트만 허용 (보안 강화)
-        configuration.setAllowedOriginPatterns(Arrays.asList(
-            frontendUrl,
-            "http://localhost:8081",     // React Native Metro 기본 포트
-            "http://localhost:3000",     // 웹 개발 서버
-            "http://127.0.0.1:8081",
-            "http://127.0.0.1:3000",
-            "http://10.0.2.2:8081"       // Android Emulator (특정 포트만)
-        ));
+        // 개발 환경에서는 모든 Origin 허용 (Android 에뮬레이터 지원)
+        // 프로덕션에서는 특정 도메인만 허용하도록 수정 필요
+        boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev") ||
+                       Arrays.asList(environment.getActiveProfiles()).contains("local");
+        
+        if (isDev) {
+            // 개발 환경: 모든 Origin 허용
+            configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+            // 모든 Origin 허용 시 credentials는 false로 설정해야 함
+            configuration.setAllowCredentials(false);
+        } else {
+            // 프로덕션: 특정 도메인만 허용
+            configuration.setAllowedOriginPatterns(Arrays.asList(
+                frontendUrl,
+                "http://localhost:8081",     // React Native Metro 기본 포트
+                "http://localhost:3000",     // 웹 개발 서버
+                "http://127.0.0.1:8081",
+                "http://127.0.0.1:3000",
+                "http://10.0.2.2:*"          // Android Emulator (모든 포트)
+            ));
+            configuration.setAllowCredentials(true);
+        }
 
         // 허용할 HTTP 메서드
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
@@ -71,7 +83,8 @@ public class SecurityConfig {
             "Content-Type",
             "Accept",
             "X-Requested-With",
-            "Cache-Control"
+            "Cache-Control",
+            "Origin"  // Origin 헤더 명시적 허용
         ));
 
         // 응답에 노출할 헤더
@@ -79,9 +92,6 @@ public class SecurityConfig {
             "Authorization",
             "Content-Type"
         ));
-
-        // 인증 정보 포함 허용 (쿠키, Authorization 헤더 등)
-        configuration.setAllowCredentials(true);
 
         // preflight 요청 캐시 시간 (1시간)
         configuration.setMaxAge(3600L);
@@ -129,6 +139,8 @@ public class SecurityConfig {
                 // 권한별 URL 접근 설정
                 .authorizeHttpRequests(auth -> {
                     auth
+                        // CORS Preflight 요청 허용
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         // 공개 API (인증 불필요)
                         .requestMatchers("/api/auth/**").permitAll() // 인증 관련 (OAuth 포함)
                         .requestMatchers("/auth/**").permitAll() // 기존 인증 경로
@@ -170,7 +182,7 @@ public class SecurityConfig {
                 })
 
                 // JWT 필터 적용
-                .with(new JwtSecurityConfig(tokenProvider), customizer -> {})
+                .with(new JwtSecurityConfig(tokenProvider, tokenBlacklistService), customizer -> {})
 
                 // Rate Limiting 필터 추가 (JWT 필터 이전에 실행)
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)

@@ -119,14 +119,22 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.res(200, "이메일 인증이 완료되었습니다", verified));
     }
     
-    @Operation(summary = "로그아웃", description = "Refresh Token을 삭제하여 로그아웃 처리합니다")
+    @Operation(summary = "로그아웃", description = "AccessToken을 블랙리스트에 등록하고 Refresh Token을 삭제하여 로그아웃 처리합니다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그아웃 성공")
     @PostMapping("logout")
     public ResponseEntity<ApiResponse<Void>> logout(
-            @Parameter(hidden = true) Authentication authentication) {
+            @Parameter(hidden = true) Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
 
         UserDetail principal = (UserDetail) authentication.getPrincipal();
-        authService.logout(principal.getUsername());
+        
+        // Authorization 헤더에서 AccessToken 추출
+        String accessToken = null;
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            accessToken = authorizationHeader.substring(7);
+        }
+        
+        authService.logout(principal.getUsername(), accessToken);
 
         return ResponseEntity.ok(ApiResponse.res(200, "로그아웃되었습니다"));
     }

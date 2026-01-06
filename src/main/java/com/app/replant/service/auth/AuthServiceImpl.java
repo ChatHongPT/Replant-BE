@@ -13,6 +13,7 @@ import com.app.replant.exception.*;
 import com.app.replant.jwt.*;
 import com.app.replant.service.mailService.MailService;
 import com.app.replant.service.token.RefreshTokenService;
+import com.app.replant.service.token.TokenBlacklistService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -30,6 +31,7 @@ public class AuthServiceImpl implements AuthService {
     private final ReantRepository reantRepository;
     private final TokenProvider tokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
 
@@ -223,10 +225,19 @@ public class AuthServiceImpl implements AuthService {
     }
     
     @Override
-    public void logout(String email) {
-        // Redis에서 Refresh Token 삭제
+    public void logout(String email, String accessToken) {
+        // 1. AccessToken의 남은 유효기간 계산
+        long remainingSeconds = tokenProvider.getRemainingExpirationTime(accessToken);
+        
+        // 2. AccessToken을 블랙리스트에 등록 (남은 유효기간만큼)
+        if (remainingSeconds > 0) {
+            tokenBlacklistService.addToBlacklist(accessToken, remainingSeconds);
+        }
+        
+        // 3. Redis에서 Refresh Token 삭제
         refreshTokenService.deleteRefreshToken(email);
-        log.info("로그아웃 완료: {}", email);
+        
+        log.info("로그아웃 완료: {} (AccessToken 블랙리스트 등록, 남은 유효기간: {}초)", email, remainingSeconds);
     }
     
     /**

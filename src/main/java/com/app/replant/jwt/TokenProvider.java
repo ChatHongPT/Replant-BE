@@ -141,4 +141,24 @@ public class TokenProvider {
             throw e;  // JwtFilter에서 잡히도록 다시 던짐
         }
     }
+
+    /**
+     * 토큰의 남은 유효기간을 초 단위로 계산
+     * @param token JWT 토큰
+     * @return 남은 유효기간 (초 단위), 만료되었거나 파싱 실패 시 0 반환
+     */
+    public long getRemainingExpirationTime(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            Date expiration = claims.getExpiration();
+            if (expiration == null) {
+                return 0;
+            }
+            long remainingTime = (expiration.getTime() - System.currentTimeMillis()) / 1000;
+            return Math.max(0, remainingTime);
+        } catch (Exception e) {
+            log.debug("토큰 만료 시간 계산 실패: {}", e.getMessage());
+            return 0;
+        }
+    }
 }
