@@ -132,4 +132,9 @@ public class SseService {
         emitters.remove(memberId);
         log.info("SSE emitter 제거 - memberId: {}, 이유: {}, 현재 연결 수: {}", memberId, reason, emitters.size());
     }
+
+    public boolean sendNotification(Long userId, Notification notification) {
+        NotificationResponse response = NotificationResponse.from(notification);
+        return sendToUser(userId, "notification", response);
+    }
 }
