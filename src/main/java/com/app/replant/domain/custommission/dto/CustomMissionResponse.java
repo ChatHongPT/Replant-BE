@@ -1,7 +1,10 @@
 package com.app.replant.domain.custommission.dto;
 
 import com.app.replant.domain.custommission.entity.CustomMission;
+import com.app.replant.domain.mission.enums.DifficultyLevel;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.enums.WorryType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -17,6 +20,12 @@ public class CustomMissionResponse {
     private String description;
     private Long creatorId;
     private String creatorNickname;
+
+    // 새로 추가된 필드들 (시스템 미션과 통합)
+    private WorryType worryType;           // 고민 종류
+    private MissionType missionType;        // 미션 기간 타입 (DAILY, WEEKLY, MONTHLY)
+    private DifficultyLevel difficultyLevel; // 난이도 (EASY, MEDIUM, HARD)
+
     private Integer durationDays;
     private Boolean isPublic;
     private VerificationType verificationType;
@@ -36,6 +45,9 @@ public class CustomMissionResponse {
                 .description(customMission.getDescription())
                 .creatorId(customMission.getCreator().getId())
                 .creatorNickname(customMission.getCreator().getNickname())
+                .worryType(customMission.getWorryType())
+                .missionType(customMission.getMissionType())
+                .difficultyLevel(customMission.getDifficultyLevel())
                 .durationDays(customMission.getDurationDays())
                 .isPublic(customMission.getIsPublic())
                 .verificationType(customMission.getVerificationType())

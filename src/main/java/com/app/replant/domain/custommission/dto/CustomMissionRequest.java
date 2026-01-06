@@ -1,6 +1,9 @@
 package com.app.replant.domain.custommission.dto;
 
+import com.app.replant.domain.mission.enums.DifficultyLevel;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.enums.WorryType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +22,15 @@ public class CustomMissionRequest {
     @NotBlank(message = "설명은 필수입니다.")
     private String description;
 
+    // 고민 종류 (선택)
+    private WorryType worryType;
+
+    // 미션 기간 타입: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
+    private MissionType missionType;
+
+    // 난이도: EASY(쉬움), MEDIUM(보통), HARD(어려움)
+    private DifficultyLevel difficultyLevel;
+
     @NotNull(message = "기간은 필수입니다.")
     @Min(value = 1, message = "기간은 1일 이상이어야 합니다.")
     private Integer durationDays;
@@ -34,7 +46,7 @@ public class CustomMissionRequest {
     private Integer gpsRadiusMeters;
     private Integer requiredMinutes;
 
-    @NotNull(message = "경험치 보상은 필수입니다.")
+    // 경험치 보상 (선택 - 난이도에 따라 자동 계산 가능)
     @Min(value = 0, message = "경험치는 0 이상이어야 합니다.")
     private Integer expReward;
 

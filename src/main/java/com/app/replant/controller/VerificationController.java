@@ -29,7 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
-@Tag(name = "Verification", description = "인증 게시판 API")
+@Tag(name = "Verification", description = "인증 API")
 @RestController
 @RequestMapping("/api/verifications")
 @RequiredArgsConstructor

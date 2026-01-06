@@ -41,6 +41,9 @@ public class CustomMissionService {
                 .creator(user)
                 .title(request.getTitle())
                 .description(request.getDescription())
+                .worryType(request.getWorryType())
+                .missionType(request.getMissionType())
+                .difficultyLevel(request.getDifficultyLevel())
                 .durationDays(request.getDurationDays())
                 .isPublic(request.getIsPublic())
                 .verificationType(request.getVerificationType())
@@ -65,7 +68,8 @@ public class CustomMissionService {
             throw new CustomException(ErrorCode.NOT_MISSION_CREATOR);
         }
 
-        customMission.update(request.getTitle(), request.getDescription(), request.getIsPublic());
+        customMission.update(request.getTitle(), request.getDescription(), request.getWorryType(),
+                request.getMissionType(), request.getDifficultyLevel(), request.getExpReward(), request.getIsPublic());
         return CustomMissionResponse.from(customMission);
     }
 

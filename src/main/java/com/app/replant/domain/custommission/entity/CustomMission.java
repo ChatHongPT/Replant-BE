@@ -1,6 +1,9 @@
 package com.app.replant.domain.custommission.entity;
 
+import com.app.replant.domain.mission.enums.DifficultyLevel;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -30,6 +33,21 @@ public class CustomMission {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
+
+    // 고민 종류 (시스템 미션과 동일)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "worry_type", length = 30)
+    private WorryType worryType;
+
+    // 미션 기간 타입: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mission_type", length = 20)
+    private MissionType missionType;
+
+    // 난이도: EASY(쉬움), MEDIUM(보통), HARD(어려움)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty_level", length = 20)
+    private DifficultyLevel difficultyLevel;
 
     @Column(name = "duration_days", nullable = false)
     private Integer durationDays;
@@ -66,12 +84,17 @@ public class CustomMission {
     private LocalDateTime createdAt;
 
     @Builder
-    private CustomMission(User creator, String title, String description, Integer durationDays, Boolean isPublic,
-                          VerificationType verificationType, BigDecimal gpsLatitude, BigDecimal gpsLongitude,
-                          Integer gpsRadiusMeters, Integer requiredMinutes, Integer expReward, Integer badgeDurationDays, Boolean isActive) {
+    private CustomMission(User creator, String title, String description, WorryType worryType,
+                          MissionType missionType, DifficultyLevel difficultyLevel, Integer durationDays,
+                          Boolean isPublic, VerificationType verificationType, BigDecimal gpsLatitude,
+                          BigDecimal gpsLongitude, Integer gpsRadiusMeters, Integer requiredMinutes,
+                          Integer expReward, Integer badgeDurationDays, Boolean isActive) {
         this.creator = creator;
         this.title = title;
         this.description = description;
+        this.worryType = worryType;
+        this.missionType = missionType != null ? missionType : MissionType.DAILY;
+        this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.MEDIUM;
         this.durationDays = durationDays;
         this.isPublic = isPublic != null ? isPublic : false;
         this.verificationType = verificationType;
@@ -79,18 +102,41 @@ public class CustomMission {
         this.gpsLongitude = gpsLongitude;
         this.gpsRadiusMeters = gpsRadiusMeters != null ? gpsRadiusMeters : 100;
         this.requiredMinutes = requiredMinutes;
-        this.expReward = expReward != null ? expReward : 10;
+        this.expReward = expReward != null ? expReward : calculateDefaultExpReward(difficultyLevel);
         this.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;
         this.isActive = isActive != null ? isActive : true;
         this.createdAt = LocalDateTime.now();
     }
 
-    public void update(String title, String description, Boolean isPublic) {
+    // 난이도에 따른 기본 경험치 계산
+    private static Integer calculateDefaultExpReward(DifficultyLevel level) {
+        if (level == null) return 20;
+        return switch (level) {
+            case EASY, LEVEL1 -> 10;
+            case MEDIUM, LEVEL2 -> 20;
+            case HARD, LEVEL3 -> 30;
+        };
+    }
+
+    public void update(String title, String description, WorryType worryType, MissionType missionType,
+                       DifficultyLevel difficultyLevel, Integer expReward, Boolean isPublic) {
         if (title != null) {
             this.title = title;
         }
         if (description != null) {
             this.description = description;
+        }
+        if (worryType != null) {
+            this.worryType = worryType;
+        }
+        if (missionType != null) {
+            this.missionType = missionType;
+        }
+        if (difficultyLevel != null) {
+            this.difficultyLevel = difficultyLevel;
+        }
+        if (expReward != null) {
+            this.expReward = expReward;
         }
         if (isPublic != null) {
             this.isPublic = isPublic;
