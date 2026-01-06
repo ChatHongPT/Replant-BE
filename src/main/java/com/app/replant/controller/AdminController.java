@@ -263,4 +263,60 @@ public class AdminController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @Operation(summary = "사용자 역할 변경", description = "특정 사용자의 역할을 변경합니다 (관리자 전용)")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "역할 변경 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음")
+    @PatchMapping("/members/{memberId}/role")
+    public ResponseEntity<Map<String, Object>> updateMemberRole(
+            @Parameter(description = "회원 ID", required = true) @PathVariable Long memberId,
+            @Parameter(description = "변경할 역할 (USER, GRADUATE, CONTRIBUTOR, ADMIN)", required = true) @RequestParam String role) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            log.info("관리자 - 회원 역할 변경: memberId={}, role={}", memberId, role);
+            int updated = jdbcTemplate.update("UPDATE `user` SET role = ? WHERE id = ?", role, memberId);
+            if (updated > 0) {
+                response.put("success", true);
+                response.put("message", "역할이 변경되었습니다.");
+                response.put("memberId", memberId);
+                response.put("newRole", role);
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("success", false);
+                response.put("error", "회원을 찾을 수 없습니다.");
+                return ResponseEntity.status(404).body(response);
+            }
+        } catch (Exception e) {
+            log.error("역할 변경 실패", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @Operation(summary = "이메일로 관리자 설정", description = "특정 이메일의 사용자를 관리자로 설정합니다 (초기 설정용, 인증 불필요)")
+    @PostMapping("/setup-admin")
+    public ResponseEntity<Map<String, Object>> setupAdmin(
+            @Parameter(description = "관리자로 설정할 이메일", required = true) @RequestParam String email) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            log.info("관리자 설정 요청: email={}", email);
+            int updated = jdbcTemplate.update("UPDATE `user` SET role = 'ADMIN' WHERE email = ?", email);
+            if (updated > 0) {
+                response.put("success", true);
+                response.put("message", "관리자로 설정되었습니다.");
+                response.put("email", email);
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("success", false);
+                response.put("error", "해당 이메일의 사용자를 찾을 수 없습니다.");
+                return ResponseEntity.status(404).body(response);
+            }
+        } catch (Exception e) {
+            log.error("관리자 설정 실패", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
 }

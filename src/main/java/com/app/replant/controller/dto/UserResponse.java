@@ -4,6 +4,7 @@ import com.app.replant.domain.mission.enums.PlaceType;
 import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.Gender;
+import com.app.replant.domain.user.enums.UserRole;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -20,6 +21,7 @@ public class UserResponse {
     private Gender gender;
     private String profileImg;
     private LocalDateTime createdAt;
+    private UserRole role;
 
     // ============ 사용자 맞춤 정보 필드들 ============
     private WorryType worryType;
@@ -35,6 +37,7 @@ public class UserResponse {
                 .gender(user.getGender())
                 .profileImg(user.getProfileImg())
                 .createdAt(user.getCreatedAt())
+                .role(user.getRole())
                 // 사용자 맞춤 정보
                 .worryType(user.getWorryType())
                 .region(user.getRegion())
