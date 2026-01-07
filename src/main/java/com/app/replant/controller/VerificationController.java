@@ -12,12 +12,14 @@ import com.app.replant.domain.verification.entity.VerificationPost;
 import com.app.replant.domain.verification.enums.VerificationStatus;
 import com.app.replant.domain.verification.repository.VerificationPostRepository;
 import com.app.replant.domain.verification.service.VerificationService;
+import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -33,12 +35,14 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/verifications")
 @RequiredArgsConstructor
+@Slf4j
 public class VerificationController {
 
     private final VerificationService verificationService;
     private final VerificationPostRepository verificationPostRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Operation(summary = "인증글 목록 조회")
     @GetMapping
@@ -188,6 +192,17 @@ public class VerificationController {
                 .build();
 
         Comment saved = commentRepository.save(comment);
+
+        // 댓글 알림 발송 (본인 글에 댓글 달면 알림 안 함)
+        if (!verificationPost.getUser().getId().equals(userId)) {
+            sendVerificationCommentNotification(verificationPost.getUser(), user, verificationPost);
+        }
+
+        // 대댓글인 경우, 부모 댓글 작성자에게도 알림 (본인이 아닌 경우)
+        if (parentComment != null && !parentComment.getUser().getId().equals(userId)) {
+            sendVerificationReplyNotification(parentComment.getUser(), user, verificationPost);
+        }
+
         return ApiResponse.success(CommentResponse.from(saved));
     }
 
@@ -236,5 +251,70 @@ public class VerificationController {
         Map<String, Long> result = new HashMap<>();
         result.put("count", count);
         return ApiResponse.success(result);
+    }
+
+    /**
+     * 인증글 댓글 알림 발송
+     */
+    private void sendVerificationCommentNotification(User postAuthor, User commenter, VerificationPost post) {
+        String missionTitle = getMissionTitle(post);
+        String title = "인증글에 댓글이 달렸습니다";
+        String content = String.format("%s님이 '%s' 인증글에 댓글을 달았습니다.",
+                commenter.getNickname(), truncateTitle(missionTitle, 15));
+
+        notificationService.createAndPushNotification(
+                postAuthor,
+                "VERIFICATION_COMMENT",
+                title,
+                content,
+                "VERIFICATION",
+                post.getId()
+        );
+
+        log.info("인증글 댓글 알림 발송 - verificationId={}, commenterId={}, postAuthorId={}",
+                post.getId(), commenter.getId(), postAuthor.getId());
+    }
+
+    /**
+     * 인증글 대댓글 알림 발송
+     */
+    private void sendVerificationReplyNotification(User parentCommentAuthor, User replier, VerificationPost post) {
+        String title = "인증글 댓글에 답글이 달렸습니다";
+        String content = String.format("%s님이 회원님의 댓글에 답글을 달았습니다.", replier.getNickname());
+
+        notificationService.createAndPushNotification(
+                parentCommentAuthor,
+                "VERIFICATION_REPLY",
+                title,
+                content,
+                "VERIFICATION",
+                post.getId()
+        );
+
+        log.info("인증글 답글 알림 발송 - verificationId={}, replierId={}, parentCommentAuthorId={}",
+                post.getId(), replier.getId(), parentCommentAuthor.getId());
+    }
+
+    /**
+     * 미션 제목 가져오기
+     */
+    private String getMissionTitle(VerificationPost post) {
+        if (post.getUserMission() != null) {
+            if (post.getUserMission().getMission() != null) {
+                return post.getUserMission().getMission().getTitle();
+            } else if (post.getUserMission().getCustomMission() != null) {
+                return post.getUserMission().getCustomMission().getTitle();
+            }
+        }
+        return "미션";
+    }
+
+    /**
+     * 제목 자르기
+     */
+    private String truncateTitle(String title, int maxLength) {
+        if (title == null) return "인증글";
+        if (title.length() <= maxLength) return title;
+        return title.substring(0, maxLength) + "...";
     }
 }
