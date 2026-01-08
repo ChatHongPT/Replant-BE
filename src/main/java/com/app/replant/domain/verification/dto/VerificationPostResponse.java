@@ -1,6 +1,6 @@
 package com.app.replant.domain.verification.dto;
 
-import com.app.replant.domain.verification.entity.VerificationPost;
+import com.app.replant.domain.post.entity.Post;
 import com.app.replant.domain.verification.enums.VerificationStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -24,13 +24,13 @@ public class VerificationPostResponse {
     private String missionType;
     private MissionInfo mission;
     private CustomMissionInfo customMission;
-    private String missionTitle;  // 프론트엔드 호환성을 위해 추가
+    private String missionTitle;
     private String content;
     private List<String> imageUrls;
     private VerificationStatus status;
     private Integer approveCount;
     private Integer rejectCount;
-    private Integer commentCount;  // 댓글 수 추가
+    private Integer commentCount;
     private LocalDateTime createdAt;
     private String myVote;
 
@@ -49,29 +49,29 @@ public class VerificationPostResponse {
         private String title;
     }
 
-    public static VerificationPostResponse from(VerificationPost post) {
+    public static VerificationPostResponse from(Post post) {
         return from(post, null, 0);
     }
 
-    public static VerificationPostResponse from(VerificationPost post, String myVote) {
+    public static VerificationPostResponse from(Post post, String myVote) {
         return from(post, myVote, 0);
     }
 
-    public static VerificationPostResponse from(VerificationPost post, String myVote, int commentCount) {
+    public static VerificationPostResponse from(Post post, String myVote, int commentCount) {
         // missionTitle 추출
-        String missionTitle = "미션";
-        if (post.getUserMission().getMission() != null) {
-            missionTitle = post.getUserMission().getMission().getTitle();
-        } else if (post.getUserMission().getCustomMission() != null) {
-            missionTitle = post.getUserMission().getCustomMission().getTitle();
+        String missionTitle = post.getMissionTitle();
+        if (missionTitle == null) {
+            missionTitle = "미션";
         }
+
+        Long userMissionId = post.getUserMission() != null ? post.getUserMission().getId() : null;
 
         VerificationPostResponseBuilder builder = VerificationPostResponse.builder()
                 .id(post.getId())
                 .userId(post.getUser().getId())
                 .userNickname(post.getUser().getNickname())
                 .userProfileImg(post.getUser().getProfileImg())
-                .userMissionId(post.getUserMission().getId())
+                .userMissionId(userMissionId)
                 .missionTitle(missionTitle)
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
@@ -82,18 +82,18 @@ public class VerificationPostResponse {
                 .createdAt(post.getCreatedAt())
                 .myVote(myVote);
 
-        if (post.getUserMission().getMission() != null) {
+        if (post.getMission() != null) {
             builder.missionType("SYSTEM")
                     .mission(MissionInfo.builder()
-                            .id(post.getUserMission().getMission().getId())
-                            .title(post.getUserMission().getMission().getTitle())
-                            .type(post.getUserMission().getMission().getType().name())
+                            .id(post.getMission().getId())
+                            .title(post.getMission().getTitle())
+                            .type(post.getMission().getType().name())
                             .build());
-        } else if (post.getUserMission().getCustomMission() != null) {
+        } else if (post.getCustomMission() != null) {
             builder.missionType("CUSTOM")
                     .customMission(CustomMissionInfo.builder()
-                            .id(post.getUserMission().getCustomMission().getId())
-                            .title(post.getUserMission().getCustomMission().getTitle())
+                            .id(post.getCustomMission().getId())
+                            .title(post.getCustomMission().getTitle())
                             .build());
         }
 

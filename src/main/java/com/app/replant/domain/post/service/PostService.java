@@ -5,6 +5,7 @@ import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.custommission.repository.CustomMissionRepository;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.repository.MissionRepository;
+import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.post.dto.CommentRequest;
 import com.app.replant.domain.post.dto.CommentResponse;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -88,7 +90,7 @@ public class PostService {
             }
         }
 
-        Post post = Post.builder()
+        Post post = Post.generalBuilder()
                 .user(user)
                 .mission(mission)
                 .customMission(customMission)
@@ -141,8 +143,17 @@ public class PostService {
         // Verify post exists
         findPostById(postId);
         // 최상위 댓글만 조회하고, 대댓글은 replies로 포함
-        return commentRepository.findParentCommentsByPostId(postId, pageable)
-                .map(CommentResponse::fromWithReplies);
+        List<Comment> comments = commentRepository.findParentCommentsByPostIdWithUser(postId);
+        List<CommentResponse> responseList = comments.stream()
+                .map(CommentResponse::fromWithReplies)
+                .collect(java.util.stream.Collectors.toList());
+
+        // 수동 페이징
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), responseList.size());
+        List<CommentResponse> pagedList = start < responseList.size() ? responseList.subList(start, end) : java.util.Collections.emptyList();
+
+        return new org.springframework.data.domain.PageImpl<>(pagedList, pageable, responseList.size());
     }
 
     @Transactional
@@ -192,7 +203,7 @@ public class PostService {
 
         notificationService.createAndPushNotification(
                 parentCommentAuthor,
-                "REPLY",
+                NotificationType.REPLY,
                 title,
                 content,
                 "POST",
@@ -213,7 +224,7 @@ public class PostService {
 
         notificationService.createAndPushNotification(
                 postAuthor,
-                "COMMENT",
+                NotificationType.COMMENT,
                 title,
                 content,
                 "POST",

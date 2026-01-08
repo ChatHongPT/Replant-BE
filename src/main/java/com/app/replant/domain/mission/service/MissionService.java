@@ -168,7 +168,7 @@ public class MissionService {
 
     @Transactional
     public MissionResponse createMission(MissionRequest request) {
-        Mission mission = Mission.builder()
+        Mission mission = Mission.officialBuilder()
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .type(request.getType())
@@ -197,7 +197,7 @@ public class MissionService {
     public MissionResponse updateMission(Long missionId, MissionRequest request) {
         Mission mission = findMissionById(missionId);
 
-        mission.update(
+        mission.updateOfficial(
                 request.getTitle(),
                 request.getDescription(),
                 request.getType(),
@@ -230,7 +230,7 @@ public class MissionService {
     @Transactional
     public List<MissionResponse> bulkCreateMissions(List<MissionRequest> requests) {
         List<Mission> missions = requests.stream()
-                .map(request -> Mission.builder()
+                .map(request -> Mission.officialBuilder()
                         .title(request.getTitle())
                         .description(request.getDescription())
                         .type(request.getType())

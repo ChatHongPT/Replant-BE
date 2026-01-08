@@ -2,6 +2,7 @@ package com.app.replant.domain.notification.service;
 
 import com.app.replant.domain.notification.dto.NotificationResponse;
 import com.app.replant.domain.notification.entity.Notification;
+import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.repository.NotificationRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.exception.CustomException;
@@ -89,5 +90,31 @@ public class NotificationService {
     @Transactional
     public Notification createAndPushNotification(User user, String type, String title, String content) {
         return createAndPushNotification(user, type, title, content, null, null);
+    }
+
+    // ============ NotificationType enum을 사용하는 메서드들 ============
+
+    /**
+     * 알림 생성 + DB 저장 + SSE 실시간 전송 (enum 버전)
+     * @param user 수신자
+     * @param type 알림 타입 (NotificationType enum)
+     * @param title 알림 제목
+     * @param content 알림 내용
+     * @param referenceType 참조 타입 (nullable)
+     * @param referenceId 참조 ID (nullable)
+     * @return 생성된 알림 엔티티
+     */
+    @Transactional
+    public Notification createAndPushNotification(User user, NotificationType type, String title,
+                                                   String content, String referenceType, Long referenceId) {
+        return createAndPushNotification(user, type.name(), title, content, referenceType, referenceId);
+    }
+
+    /**
+     * 간편 알림 생성 (enum 버전, 참조 없음)
+     */
+    @Transactional
+    public Notification createAndPushNotification(User user, NotificationType type, String title, String content) {
+        return createAndPushNotification(user, type.name(), title, content, null, null);
     }
 }

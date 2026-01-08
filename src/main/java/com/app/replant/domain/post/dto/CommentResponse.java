@@ -24,11 +24,16 @@ public class CommentResponse {
     private LocalDateTime updatedAt;
 
     public static CommentResponse from(Comment comment) {
+        // User가 이미 로딩되어 있어야 함 (LAZY 로딩 문제 방지)
+        Long userId = comment.getUser() != null ? comment.getUser().getId() : null;
+        String userNickname = comment.getUser() != null ? comment.getUser().getNickname() : "알 수 없음";
+        String userProfileImg = comment.getUser() != null ? comment.getUser().getProfileImg() : null;
+
         return CommentResponse.builder()
                 .id(comment.getId())
-                .userId(comment.getUser().getId())
-                .userNickname(comment.getUser().getNickname())
-                .userProfileImg(comment.getUser().getProfileImg())
+                .userId(userId)
+                .userNickname(userNickname)
+                .userProfileImg(userProfileImg)
                 .content(comment.getContent())
                 .parentId(comment.getParentId())
                 .replyCount(comment.getReplies() != null ? comment.getReplies().size() : 0)
@@ -48,11 +53,16 @@ public class CommentResponse {
                     .collect(Collectors.toList());
         }
 
+        // User가 이미 로딩되어 있어야 함 (LAZY 로딩 문제 방지)
+        Long userId = comment.getUser() != null ? comment.getUser().getId() : null;
+        String userNickname = comment.getUser() != null ? comment.getUser().getNickname() : "알 수 없음";
+        String userProfileImg = comment.getUser() != null ? comment.getUser().getProfileImg() : null;
+
         return CommentResponse.builder()
                 .id(comment.getId())
-                .userId(comment.getUser().getId())
-                .userNickname(comment.getUser().getNickname())
-                .userProfileImg(comment.getUser().getProfileImg())
+                .userId(userId)
+                .userNickname(userNickname)
+                .userProfileImg(userProfileImg)
                 .content(comment.getContent())
                 .parentId(comment.getParentId())
                 .replies(replyResponses)

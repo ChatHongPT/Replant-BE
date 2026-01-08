@@ -3,6 +3,7 @@ package com.app.replant.scheduler;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.repository.MissionRepository;
+import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
@@ -124,7 +125,7 @@ public class MissionDistributionScheduler {
 
             notificationService.createAndPushNotification(
                     user,
-                    "MISSION_ASSIGNED",
+                    NotificationType.MISSION_ASSIGNED,
                     notificationTitle,
                     notificationContent,
                     "MISSION_TYPE",

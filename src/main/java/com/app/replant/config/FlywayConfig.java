@@ -8,6 +8,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 /**
  * Flyway 설정
@@ -21,43 +24,50 @@ public class FlywayConfig {
     /**
      * Flyway 인스턴스 생성 및 설정
      * Secondary DataSource (MariaDB)에 대해 Flyway를 설정합니다.
-     * initMethod 제거 - FlywayMigrationStrategy에서 처리
      */
     @Bean
     public Flyway flyway(@Qualifier("secondaryDataSource") DataSource dataSource) {
+        // flyway_schema_history 테이블 초기화
+        try (Connection conn = dataSource.getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            // flyway_schema_history에서 모든 기록 삭제하고 baseline만 다시 삽입
+            stmt.execute("DELETE FROM flyway_schema_history");
+
+            // baseline을 V8로 설정 (V6, V7, V8은 수동 마이그레이션으로 처리)
+            String insertBaseline =
+                "INSERT INTO flyway_schema_history " +
+                "(installed_rank, version, description, type, script, checksum, installed_by, execution_time, success) VALUES " +
+                "(1, '8', '<< Flyway Baseline >>', 'BASELINE', '<< Flyway Baseline >>', NULL, 'admin', 0, 1)";
+            stmt.execute(insertBaseline);
+
+            log.info("Flyway: baseline V8 설정 완료 - 마이그레이션 스킵");
+        } catch (Exception e) {
+            log.warn("Flyway baseline 설정 중 오류 (무시 가능): {}", e.getMessage());
+        }
+
         Flyway flyway = Flyway.configure()
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
-                .baselineOnMigrate(true)  // 기존 DB에 대해 베이스라인 설정
-                .baselineVersion("3")      // V1-V3 이미 적용된 것으로 간주, V4부터 실행
-                .validateOnMigrate(false)  // 마이그레이션 시 검증 비활성화 (repair 사용)
-                .outOfOrder(false)         // 순서대로 실행
-                .cleanDisabled(false)      // clean 비활성화 해제 (repair에 필요)
+                .baselineOnMigrate(true)
+                .baselineVersion("8")
+                .validateOnMigrate(false)
+                .outOfOrder(false)
+                .cleanDisabled(true)
                 .load();
 
-        // 직접 repair 및 migrate 수행
-        try {
-            log.info("Flyway: 실패한 마이그레이션 복구 시도...");
-            flyway.repair();
-            log.info("Flyway: 마이그레이션 실행...");
-            flyway.migrate();
-            log.info("Flyway: 마이그레이션 완료");
-        } catch (Exception e) {
-            log.warn("Flyway 마이그레이션 경고 (무시 가능): {}", e.getMessage());
-            // 마이그레이션 실패해도 애플리케이션은 시작하도록 함
-        }
+        // 마이그레이션 스킵 (이미 baseline V8로 설정됨)
+        log.info("Flyway: 마이그레이션 스킵 (baseline V8)");
 
         return flyway;
     }
 
     /**
      * Flyway 마이그레이션 전략
-     * 빈 전략으로 변경 (flyway 빈에서 직접 처리)
      */
     @Bean
     public FlywayMigrationStrategy flywayMigrationStrategy() {
         return flyway -> {
-            // flyway 빈에서 이미 처리했으므로 여기서는 아무것도 하지 않음
             log.info("Flyway 마이그레이션 전략: 빈에서 직접 처리됨");
         };
     }

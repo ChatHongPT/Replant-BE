@@ -1,8 +1,8 @@
 package com.app.replant.domain.post.entity;
 
 import com.app.replant.common.BaseEntity;
+import com.app.replant.domain.post.enums.CommentTargetType;
 import com.app.replant.domain.user.entity.User;
-import com.app.replant.domain.verification.entity.VerificationPost;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -15,7 +15,8 @@ import java.util.List;
 @Entity
 @Table(name = "comment", indexes = {
     @Index(name = "idx_comment_post_id", columnList = "post_id"),
-    @Index(name = "idx_comment_parent_id", columnList = "parent_id")
+    @Index(name = "idx_comment_parent_id", columnList = "parent_id"),
+    @Index(name = "idx_comment_target", columnList = "target_type, target_id")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,9 +30,13 @@ public class Comment extends BaseEntity {
     @JoinColumn(name = "post_id")
     private Post post;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "verification_post_id")
-    private VerificationPost verificationPost;
+    // 일반화된 댓글 대상 (QnA, Diary 등에서 사용)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_type")
+    private CommentTargetType targetType;
+
+    @Column(name = "target_id")
+    private Long targetId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -50,12 +55,14 @@ public class Comment extends BaseEntity {
     private List<Comment> replies = new ArrayList<>();
 
     @Builder
-    public Comment(Post post, VerificationPost verificationPost, User user, String content, Comment parent) {
+    public Comment(Post post, User user, String content, Comment parent,
+                   CommentTargetType targetType, Long targetId) {
         this.post = post;
-        this.verificationPost = verificationPost;
         this.user = user;
         this.content = content;
         this.parent = parent;
+        this.targetType = targetType;
+        this.targetId = targetId;
     }
 
     public boolean isReply() {

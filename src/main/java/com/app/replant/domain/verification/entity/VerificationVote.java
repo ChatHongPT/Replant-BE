@@ -1,5 +1,6 @@
 package com.app.replant.domain.verification.entity;
 
+import com.app.replant.domain.post.entity.Post;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -11,7 +12,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "verification_vote", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_post_voter", columnNames = {"verification_post_id", "voter_id"})
+        @UniqueConstraint(name = "uk_verification_vote", columnNames = {"post_id", "user_id"})
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -22,25 +23,25 @@ public class VerificationVote {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "verification_post_id", nullable = false)
-    private VerificationPost verificationPost;
+    @JoinColumn(name = "post_id", nullable = false)
+    private Post post;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "voter_id", nullable = false)
-    private User voter;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
-    private VoteType vote;
+    @Column(name = "vote_type", nullable = false, length = 20)
+    private VoteType voteType;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    public VerificationVote(VerificationPost verificationPost, User voter, VoteType vote) {
-        this.verificationPost = verificationPost;
-        this.voter = voter;
-        this.vote = vote;
+    public VerificationVote(Post post, User user, VoteType voteType) {
+        this.post = post;
+        this.user = user;
+        this.voteType = voteType;
         this.createdAt = LocalDateTime.now();
     }
 

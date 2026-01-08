@@ -32,19 +32,19 @@ public class S3FileServiceImpl implements S3FileService {
             @Value("${aws.s3.region}") String region) {
         log.info("S3FileService()");
 
-        // AWS 자격증명 설정
+        // AWS ?�격증명 ?�정
         AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKey, secretKey);
 
-        // S3 클라이언트 설정
+        // S3 ?�라?�언???�정
         s3Client = S3Client.builder()
-                .region(Region.of(region))  // region 설정
+                .region(Region.of(region))  // region ?�정
                 .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
                 .build();
 
 
     }
 
-    // 파일 업로드
+    // ?�일 ?�로??
     public UploadedFileInfoDto uploadImage(MultipartFile multipartFile) throws IOException {
         return uploadImageToFolder(multipartFile, null);
     }
@@ -53,12 +53,31 @@ public class S3FileServiceImpl implements S3FileService {
     public UploadedFileInfoDto uploadImageToFolder(MultipartFile multipartFile, String folder) throws IOException {
         log.info("uploadImageToFolder() folder: {}", folder);
 
-        // 파일 확장자 포함한 고유 이름 생성
+        // 파일 확장자를 포함한 고유 이름 생성
         UUID uuid = UUID.randomUUID();
         String uniqueFileName = uuid.toString().replaceAll("-", "");
 
         String fileOriName = multipartFile.getOriginalFilename();
-        String fileExtension = fileOriName.substring(fileOriName.lastIndexOf(".")); // 확장자 추출
+        String fileExtension = "";
+
+        // null 체크 및 확장자 추출
+        if (fileOriName != null && fileOriName.contains(".")) {
+            fileExtension = fileOriName.substring(fileOriName.lastIndexOf("."));
+        } else {
+            // 확장자가 없으면 Content-Type에서 추론
+            String contentType = multipartFile.getContentType();
+            if (contentType != null) {
+                if (contentType.contains("jpeg") || contentType.contains("jpg")) {
+                    fileExtension = ".jpg";
+                } else if (contentType.contains("png")) {
+                    fileExtension = ".png";
+                } else if (contentType.contains("gif")) {
+                    fileExtension = ".gif";
+                } else if (contentType.contains("webp")) {
+                    fileExtension = ".webp";
+                }
+            }
+        }
 
         // 폴더가 있으면 폴더 경로 추가
         String fileName;
@@ -68,21 +87,20 @@ public class S3FileServiceImpl implements S3FileService {
             fileName = uniqueFileName + fileExtension;
         }
 
-        // PutObjectRequest로 S3에 파일 업로드
+        // PutObjectRequest로 S3에 파일 업로드 (ACL 제거 - 최신 S3 정책 호환)
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(fileName)
-                .acl(ObjectCannedACL.PUBLIC_READ)  // 공개 읽기 권한
                 .contentType(multipartFile.getContentType())
                 .build();
 
-        // 파일 업로드
+        // ?�일 ?�로??
         s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
 
-        // 업로드한 파일의 URL
+        // ?�로?�한 ?�일??URL
         String fileUrl = s3Client.utilities().getUrl(GetUrlRequest.builder().bucket(bucket).key(fileName).build()).toString();
 
-        // 업로드한 파일의 URL 과 Name 반환
+        // ?�로?�한 ?�일??URL �?Name 반환
         return UploadedFileInfoDto.builder()
                 .fileName(fileName)
                 .fileUrl(fileUrl)
@@ -91,12 +109,12 @@ public class S3FileServiceImpl implements S3FileService {
                 .build();
     }
 
-    // 파일 삭제
+    // ?�일 ??��
     public boolean deleteImage(String fileName) {
         log.info("deleteImage()");
 
         try {
-            // S3에서 객체 삭제
+            // S3?�서 객체 ??��
             DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                     .bucket(bucket)
                     .key(fileName)
@@ -113,21 +131,21 @@ public class S3FileServiceImpl implements S3FileService {
 
     }
 
-    // 파일 다운로드
+    // ?�일 ?�운로드
     public byte[] downloadImage(String fileName) {
         log.info("downloadImage()");
 
         try {
-            // S3에서 객체를 가져오기 위한 GetObjectRequest
+            // S3?�서 객체�?가?�오�??�한 GetObjectRequest
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucket)
                     .key(fileName)
                     .build();
 
-            // S3에서 파일을 다운로드 (ResponseInputStream으로 반환됨)
+            // S3?�서 ?�일???�운로드 (ResponseInputStream?�로 반환??
             ResponseInputStream<GetObjectResponse> response = s3Client.getObject(getObjectRequest);
 
-            // 파일 내용을 ByteArray로 읽어들입니다.
+            // ?�일 ?�용??ByteArray�??�어?�입?�다.
             InputStream inputStream = response;
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             byte[] buffer = new byte[1024];

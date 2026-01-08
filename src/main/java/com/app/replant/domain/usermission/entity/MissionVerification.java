@@ -1,6 +1,6 @@
 package com.app.replant.domain.usermission.entity;
 
-import com.app.replant.domain.verification.entity.VerificationPost;
+import com.app.replant.domain.post.entity.Post;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -25,8 +25,8 @@ public class MissionVerification {
     private UserMission userMission;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "verification_post_id", unique = true)
-    private VerificationPost verificationPost;
+    @JoinColumn(name = "post_id", unique = true)
+    private Post post;
 
     @Column(name = "gps_latitude", precision = 10, scale = 8)
     private BigDecimal gpsLatitude;
@@ -53,11 +53,11 @@ public class MissionVerification {
     private LocalDateTime createdAt;
 
     @Builder
-    private MissionVerification(UserMission userMission, VerificationPost verificationPost, BigDecimal gpsLatitude,
+    private MissionVerification(UserMission userMission, Post post, BigDecimal gpsLatitude,
                                 BigDecimal gpsLongitude, Integer gpsDistanceMeters, LocalDateTime timeStartedAt,
                                 LocalDateTime timeEndedAt, Integer timeActualMinutes, LocalDateTime verifiedAt) {
         this.userMission = userMission;
-        this.verificationPost = verificationPost;
+        this.post = post;
         this.gpsLatitude = gpsLatitude;
         this.gpsLongitude = gpsLongitude;
         this.gpsDistanceMeters = gpsDistanceMeters;

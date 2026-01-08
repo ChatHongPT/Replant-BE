@@ -9,11 +9,8 @@ import java.util.Optional;
 
 public interface VerificationVoteRepository extends JpaRepository<VerificationVote, Long> {
 
-    boolean existsByVerificationPostIdAndVoterId(Long verificationPostId, Long voterId);
+    boolean existsByPostIdAndUserId(Long postId, Long userId);
 
-    @Query("SELECT vv FROM VerificationVote vv WHERE vv.verificationPost.id = :verificationId AND vv.voter.id = :voterId")
-    Optional<VerificationVote> findByVerificationIdAndVoterId(@Param("verificationId") Long verificationId, @Param("voterId") Long voterId);
-
-    @Query("SELECT vv FROM VerificationVote vv WHERE vv.verificationPost.id = :verificationPostId AND vv.voter.id = :voterId")
-    Optional<VerificationVote> findByVerificationPostIdAndVoterId(@Param("verificationPostId") Long verificationPostId, @Param("voterId") Long voterId);
+    @Query("SELECT vv FROM VerificationVote vv WHERE vv.post.id = :postId AND vv.user.id = :userId")
+    Optional<VerificationVote> findByPostIdAndUserId(@Param("postId") Long postId, @Param("userId") Long userId);
 }
