@@ -106,14 +106,20 @@ public class DiaryService {
         // List<String>을 JSON 문자열로 변환
         String emotionsJson = convertListToJson(request.getEmotions());
         String emotionFactorsJson = convertListToJson(request.getEmotionFactors());
+        String imageUrlsJson = convertListToJson(request.getImageUrls());
 
         Diary diary = Diary.builder()
                 .user(user)
                 .date(request.getDate())
+                .emotion(request.getEmotion()) // 프론트엔드 호환
                 .mood(request.getMood())
                 .emotions(emotionsJson)
                 .emotionFactors(emotionFactorsJson)
                 .content(request.getContent())
+                .weather(request.getWeather())
+                .location(request.getLocation())
+                .imageUrls(imageUrlsJson)
+                .isPrivate(request.getIsPrivate())
                 .build();
 
         Diary saved = diaryRepository.save(diary);

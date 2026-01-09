@@ -347,4 +347,36 @@ public class AdminController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @Operation(summary = "사용자 상태 변경", description = "특정 사용자의 상태를 변경합니다 (관리자 전용)")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "상태 변경 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음")
+    @PatchMapping("/members/{userId}/status")
+    public ResponseEntity<ApiResponse<UserResponseDto>> updateMemberStatus(
+            @Parameter(description = "회원 ID", required = true) @PathVariable Long userId,
+            @Parameter(description = "변경할 상태 (ACTIVE, INACTIVE)", required = true) @RequestParam String status) {
+        try {
+            log.info("관리자 - 회원 상태 변경: userId={}, status={}", userId, status);
+
+            // 유효한 상태값인지 확인
+            if (!status.equals("ACTIVE") && !status.equals("INACTIVE")) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error(400, "잘못된 상태값입니다. ACTIVE 또는 INACTIVE만 가능합니다."));
+            }
+
+            int updated = jdbcTemplate.update("UPDATE `user` SET status = ? WHERE id = ?", status, userId);
+            if (updated > 0) {
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                return ResponseEntity.ok(ApiResponse.res(200, "상태가 변경되었습니다.", UserResponseDto.from(user)));
+            } else {
+                return ResponseEntity.status(404)
+                        .body(ApiResponse.error(404, "회원을 찾을 수 없습니다."));
+            }
+        } catch (Exception e) {
+            log.error("상태 변경 실패", e);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error(500, e.getMessage()));
+        }
+    }
 }
