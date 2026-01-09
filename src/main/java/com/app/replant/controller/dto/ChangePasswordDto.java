@@ -24,6 +24,7 @@ public class ChangePasswordDto {
     @JsonProperty("newPassword")
     private String newPassword;
 
+    @Schema(hidden = true)
     public String getCurrentPassword() {
         return this.oldPassword;
     }

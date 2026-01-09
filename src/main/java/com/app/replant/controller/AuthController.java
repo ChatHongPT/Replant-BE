@@ -11,6 +11,9 @@ import com.app.replant.service.auth.AuthService;
 import com.app.replant.service.mailService.MailService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -154,10 +157,54 @@ public class AuthController {
     }
     
     @Operation(summary = "비밀번호 변경", description = "기존 비밀번호를 확인하고 새 비밀번호로 변경합니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "비밀번호 변경 성공")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "기존 비밀번호가 일치하지 않습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "회원 정보를 찾을 수 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "새 비밀번호가 기존 비밀번호와 동일합니다")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "비밀번호 변경 성공",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "data": null,
+                              "message": "비밀번호가 성공적으로 변경되었습니다."
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "기존 비밀번호가 일치하지 않습니다",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "error": {
+                                "code": "ACCOUNT-011",
+                                "message": "비밀번호가 틀립니다."
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "회원 정보를 찾을 수 없습니다",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "error": {
+                                "code": "ACCOUNT-010",
+                                "message": "아이디가 존재하지 않습니다."
+                              }
+                            }
+                            """))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "새 비밀번호가 기존 비밀번호와 동일합니다",
+                    content = @Content(examples = @ExampleObject(value = """
+                            {
+                              "error": {
+                                "code": "ACCOUNT-020",
+                                "message": "새 비밀번호가 기존 비밀번호와 동일합니다."
+                              }
+                            }
+                            """))
+            )
+    })
     @PatchMapping("resetPw")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Parameter(description = "비밀번호 변경 요청 정보 (이메일 + 기존 비밀번호 + 새 비밀번호)", required = true)
