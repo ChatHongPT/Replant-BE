@@ -18,7 +18,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // ========================================
 
     @Query("SELECT p FROM Post p WHERE " +
-           "p.postType = 'COMMUNITY' AND " +
+           "(p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') AND " +
            "(:missionId IS NULL OR p.mission.id = :missionId) " +
            "AND (:customMissionId IS NULL OR p.customMission.id = :customMissionId) " +
            "AND (:badgeOnly = false OR p.hasValidBadge = true) " +
@@ -30,9 +30,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
         Pageable pageable
     );
 
-    // 기존 메서드 유지 (호환성)
+    // 기존 메서드 유지 (호환성) - GENERAL + VERIFICATION 둘 다 조회
     @Query("SELECT p FROM Post p WHERE " +
-           "p.postType = 'COMMUNITY' AND " +
+           "(p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') AND " +
            "(:missionId IS NULL OR p.mission.id = :missionId) " +
            "AND (:customMissionId IS NULL OR p.customMission.id = :customMissionId) " +
            "AND (:badgeOnly = false OR p.hasValidBadge = true) " +

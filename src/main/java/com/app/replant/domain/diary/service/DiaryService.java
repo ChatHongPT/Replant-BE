@@ -119,7 +119,7 @@ public class DiaryService {
                 .weather(request.getWeather())
                 .location(request.getLocation())
                 .imageUrls(imageUrlsJson)
-                .isPrivate(request.getIsPrivate())
+                .isPrivate(request.getIsPrivate() != null ? request.getIsPrivate() : false)
                 .build();
 
         Diary saved = diaryRepository.save(diary);

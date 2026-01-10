@@ -16,6 +16,7 @@ import java.util.List;
 public class PostResponse {
 
     private Long id;
+    private String postType;  // GENERAL, VERIFICATION
     private Long userId;
     private String userNickname;
     private String userProfileImg;
@@ -29,6 +30,11 @@ public class PostResponse {
     private Boolean isLiked;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    // 인증글 전용 필드
+    private String status;  // PENDING, APPROVED, REJECTED (인증글인 경우)
+    private Integer approveCount;
+    private Integer rejectCount;
+    private LocalDateTime verifiedAt;
 
     @Getter
     @Builder
@@ -59,6 +65,7 @@ public class PostResponse {
 
         PostResponseBuilder builder = PostResponse.builder()
                 .id(post.getId())
+                .postType(post.getPostType() != null ? post.getPostType().name() : "GENERAL")
                 .userId(userId)
                 .userNickname(userNickname)
                 .userProfileImg(userProfileImg)
@@ -70,13 +77,18 @@ public class PostResponse {
                 .likeCount(likeCount)
                 .isLiked(isLiked)
                 .createdAt(post.getCreatedAt())
-                .updatedAt(post.getUpdatedAt());
+                .updatedAt(post.getUpdatedAt())
+                // 인증글 전용 필드
+                .status(post.getStatus() != null ? post.getStatus().name() : null)
+                .approveCount(post.getApproveCount())
+                .rejectCount(post.getRejectCount())
+                .verifiedAt(post.getVerifiedAt());
 
         if (post.getMission() != null) {
             builder.missionTag(MissionTag.builder()
                     .id(post.getMission().getId())
                     .title(post.getMission().getTitle())
-                    .type("SYSTEM")
+                    .type("OFFICIAL")
                     .build());
         } else if (post.getCustomMission() != null) {
             builder.missionTag(MissionTag.builder()
