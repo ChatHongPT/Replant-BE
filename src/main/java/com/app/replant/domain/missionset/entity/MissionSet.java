@@ -1,5 +1,7 @@
 package com.app.replant.domain.missionset.entity;
 
+import com.app.replant.domain.missionset.enums.MissionSetType;
+import com.app.replant.domain.missionset.enums.TodoListStatus;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -19,7 +21,8 @@ import java.util.List;
 @Table(name = "mission_set", indexes = {
     @Index(name = "idx_mission_set_creator", columnList = "creator_id"),
     @Index(name = "idx_mission_set_is_public", columnList = "is_public"),
-    @Index(name = "idx_mission_set_added_count", columnList = "added_count")
+    @Index(name = "idx_mission_set_added_count", columnList = "added_count"),
+    @Index(name = "idx_mission_set_type", columnList = "set_type")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -65,11 +68,32 @@ public class MissionSet {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // ============ 투두리스트용 필드들 ============
+
+    // 미션세트 타입: TODOLIST(개인 투두리스트), SHARED(공유 미션세트)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "set_type", length = 20)
+    private MissionSetType setType;
+
+    // 완료된 미션 수 (투두리스트용)
+    @Column(name = "completed_count")
+    private Integer completedCount;
+
+    // 총 미션 수 (투두리스트용)
+    @Column(name = "total_count")
+    private Integer totalCount;
+
+    // 투두리스트 상태: ACTIVE, COMPLETED, ARCHIVED
+    @Enumerated(EnumType.STRING)
+    @Column(name = "todolist_status", length = 20)
+    private TodoListStatus todolistStatus;
+
     // 미션세트에 포함된 미션 목록
     @OneToMany(mappedBy = "missionSet", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
     private List<MissionSetMission> missions = new ArrayList<>();
 
+    // 기존 공유 미션세트용 빌더
     @Builder
     private MissionSet(User creator, String title, String description, Boolean isPublic) {
         this.creator = creator;
@@ -80,8 +104,30 @@ public class MissionSet {
         this.averageRating = 0.0;
         this.reviewCount = 0;
         this.isActive = true;
+        this.setType = MissionSetType.SHARED;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // 투두리스트 생성용 빌더
+    @Builder(builderMethodName = "todoListBuilder")
+    private static MissionSet createTodoList(User creator, String title, String description, Integer totalCount) {
+        MissionSet missionSet = new MissionSet();
+        missionSet.creator = creator;
+        missionSet.title = title;
+        missionSet.description = description;
+        missionSet.isPublic = false;
+        missionSet.addedCount = 0;
+        missionSet.averageRating = 0.0;
+        missionSet.reviewCount = 0;
+        missionSet.isActive = true;
+        missionSet.setType = MissionSetType.TODOLIST;
+        missionSet.completedCount = 0;
+        missionSet.totalCount = totalCount != null ? totalCount : 5;
+        missionSet.todolistStatus = TodoListStatus.ACTIVE;
+        missionSet.createdAt = LocalDateTime.now();
+        missionSet.updatedAt = LocalDateTime.now();
+        return missionSet;
     }
 
     public void update(String title, String description, Boolean isPublic) {
@@ -129,5 +175,65 @@ public class MissionSet {
     public void removeMission(MissionSetMission missionSetMission) {
         this.missions.remove(missionSetMission);
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // ============ 투두리스트 관련 메서드들 ============
+
+    /**
+     * 투두리스트 미션 완료 처리
+     */
+    public void incrementCompletedCount() {
+        if (this.completedCount == null) {
+            this.completedCount = 0;
+        }
+        this.completedCount++;
+        this.updatedAt = LocalDateTime.now();
+
+        // 진행률 확인 후 상태 업데이트
+        updateTodoListStatusIfNeeded();
+    }
+
+    /**
+     * 투두리스트 진행률 계산 (0-100)
+     */
+    public int getProgressRate() {
+        if (this.totalCount == null || this.totalCount == 0) {
+            return 0;
+        }
+        int completed = this.completedCount != null ? this.completedCount : 0;
+        return (int) Math.round((double) completed / this.totalCount * 100);
+    }
+
+    /**
+     * 새 투두리스트 생성 가능 여부 (80% 이상 완료 시)
+     */
+    public boolean canCreateNewTodoList() {
+        return getProgressRate() >= 80;
+    }
+
+    /**
+     * 투두리스트 상태 업데이트 (80% 이상 완료 시 COMPLETED로 변경)
+     */
+    private void updateTodoListStatusIfNeeded() {
+        if (this.setType == MissionSetType.TODOLIST && canCreateNewTodoList()) {
+            this.todolistStatus = TodoListStatus.COMPLETED;
+        }
+    }
+
+    /**
+     * 투두리스트 보관처리
+     */
+    public void archiveTodoList() {
+        if (this.setType == MissionSetType.TODOLIST) {
+            this.todolistStatus = TodoListStatus.ARCHIVED;
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    /**
+     * 투두리스트 여부 확인
+     */
+    public boolean isTodoList() {
+        return this.setType == MissionSetType.TODOLIST;
     }
 }

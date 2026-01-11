@@ -47,9 +47,7 @@ public class MissionSetService {
                 .isPublic(request.getIsPublic())
                 .build();
 
-        missionSetRepository.save(missionSet);
-
-        // 미션 추가
+        // 미션 추가 (cascade로 함께 저장됨)
         if (request.getMissionIds() != null && !request.getMissionIds().isEmpty()) {
             int order = 0;
             for (Long missionId : request.getMissionIds()) {
@@ -62,10 +60,12 @@ public class MissionSetService {
                         .displayOrder(order++)
                         .build();
 
-                missionSetMissionRepository.save(msm);
                 missionSet.getMissions().add(msm);
             }
         }
+
+        // MissionSet과 MissionSetMission을 함께 저장 (cascade)
+        missionSetRepository.save(missionSet);
 
         log.info("미션세트 생성 완료: id={}, title={}, userId={}", missionSet.getId(), missionSet.getTitle(), userId);
         return MissionSetDto.DetailResponse.from(missionSet);
@@ -83,19 +83,43 @@ public class MissionSetService {
     }
 
     /**
-     * 공개 미션세트 목록 조회 (담은수 + 평점 순)
+     * 공개 미션세트 목록 조회 (정렬 옵션: popular, latest)
      */
-    public Page<MissionSetDto.SimpleResponse> getPublicMissionSets(Pageable pageable) {
+    public Page<MissionSetDto.SimpleResponse> getPublicMissionSets(Pageable pageable, String sortBy) {
+        if ("latest".equalsIgnoreCase(sortBy)) {
+            return missionSetRepository.findPublicMissionSetsOrderByLatest(pageable)
+                    .map(MissionSetDto.SimpleResponse::from);
+        }
+        // 기본값: 인기순 (popular)
         return missionSetRepository.findPublicMissionSetsOrderByPopularity(pageable)
                 .map(MissionSetDto.SimpleResponse::from);
     }
 
     /**
-     * 공개 미션세트 검색
+     * 공개 미션세트 목록 조회 (기본: 인기순) - 하위 호환성 유지
+     */
+    public Page<MissionSetDto.SimpleResponse> getPublicMissionSets(Pageable pageable) {
+        return getPublicMissionSets(pageable, "popular");
+    }
+
+    /**
+     * 공개 미션세트 검색 (정렬 옵션: popular, latest)
+     */
+    public Page<MissionSetDto.SimpleResponse> searchPublicMissionSets(String keyword, Pageable pageable, String sortBy) {
+        if ("latest".equalsIgnoreCase(sortBy)) {
+            return missionSetRepository.searchPublicMissionSetsOrderByLatest(keyword, pageable)
+                    .map(MissionSetDto.SimpleResponse::from);
+        }
+        // 기본값: 인기순 (popular)
+        return missionSetRepository.searchPublicMissionSetsOrderByPopularity(keyword, pageable)
+                .map(MissionSetDto.SimpleResponse::from);
+    }
+
+    /**
+     * 공개 미션세트 검색 (기본: 인기순) - 하위 호환성 유지
      */
     public Page<MissionSetDto.SimpleResponse> searchPublicMissionSets(String keyword, Pageable pageable) {
-        return missionSetRepository.searchPublicMissionSets(keyword, pageable)
-                .map(MissionSetDto.SimpleResponse::from);
+        return searchPublicMissionSets(keyword, pageable, "popular");
     }
 
     /**
@@ -181,7 +205,7 @@ public class MissionSetService {
                 .displayOrder(displayOrder)
                 .build();
 
-        missionSetMissionRepository.save(msm);
+        // cascade로 저장됨 - 별도 save 호출 불필요
         missionSet.getMissions().add(msm);
 
         log.info("미션세트에 미션 추가: missionSetId={}, missionId={}", missionSetId, request.getMissionId());
@@ -257,6 +281,9 @@ public class MissionSetService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // 원본 미션세트의 담은 수 증가 (먼저 처리)
+        originalSet.incrementAddedCount();
+
         // 새 미션세트 생성
         MissionSet newMissionSet = MissionSet.builder()
                 .creator(user)
@@ -265,9 +292,7 @@ public class MissionSetService {
                 .isPublic(false)  // 복사한 미션세트는 기본 비공개
                 .build();
 
-        missionSetRepository.save(newMissionSet);
-
-        // 미션 복사
+        // 미션 복사 (cascade로 함께 저장됨)
         for (MissionSetMission originalMsm : originalSet.getMissions()) {
             MissionSetMission newMsm = MissionSetMission.builder()
                     .missionSet(newMissionSet)
@@ -275,12 +300,11 @@ public class MissionSetService {
                     .displayOrder(originalMsm.getDisplayOrder())
                     .build();
 
-            missionSetMissionRepository.save(newMsm);
             newMissionSet.getMissions().add(newMsm);
         }
 
-        // 원본 미션세트의 담은 수 증가
-        originalSet.incrementAddedCount();
+        // MissionSet과 MissionSetMission을 함께 저장 (cascade)
+        missionSetRepository.save(newMissionSet);
 
         log.info("미션세트 담기 완료: originalId={}, newId={}, userId={}", missionSetId, newMissionSet.getId(), userId);
         return MissionSetDto.DetailResponse.from(newMissionSet);

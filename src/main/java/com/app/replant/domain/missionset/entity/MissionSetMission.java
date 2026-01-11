@@ -1,6 +1,7 @@
 package com.app.replant.domain.missionset.entity;
 
 import com.app.replant.domain.mission.entity.Mission;
+import com.app.replant.domain.missionset.enums.MissionSource;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -43,6 +44,22 @@ public class MissionSetMission {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // ============ 투두리스트용 필드들 ============
+
+    // 미션 완료 여부 (투두리스트용)
+    @Column(name = "is_completed")
+    private Boolean isCompleted;
+
+    // 미션 완료 시간 (투두리스트용)
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    // 미션 출처: RANDOM_OFFICIAL(랜덤 배정), CUSTOM_SELECTED(사용자 선택)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mission_source", length = 20)
+    private MissionSource missionSource;
+
+    // 기존 공유 미션세트용 빌더
     @Builder
     private MissionSetMission(MissionSet missionSet, Mission mission, Integer displayOrder) {
         this.missionSet = missionSet;
@@ -51,7 +68,39 @@ public class MissionSetMission {
         this.createdAt = LocalDateTime.now();
     }
 
+    // 투두리스트 미션용 빌더
+    @Builder(builderMethodName = "todoMissionBuilder")
+    private static MissionSetMission createTodoMission(
+            MissionSet missionSet, 
+            Mission mission, 
+            Integer displayOrder,
+            MissionSource missionSource) {
+        MissionSetMission msm = new MissionSetMission();
+        msm.missionSet = missionSet;
+        msm.mission = mission;
+        msm.displayOrder = displayOrder != null ? displayOrder : 0;
+        msm.isCompleted = false;
+        msm.missionSource = missionSource;
+        msm.createdAt = LocalDateTime.now();
+        return msm;
+    }
+
     public void updateDisplayOrder(Integer displayOrder) {
         this.displayOrder = displayOrder;
+    }
+
+    /**
+     * 미션 완료 처리
+     */
+    public void complete() {
+        this.isCompleted = true;
+        this.completedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 미션 완료 여부 확인
+     */
+    public boolean isCompletedMission() {
+        return Boolean.TRUE.equals(this.isCompleted);
     }
 }

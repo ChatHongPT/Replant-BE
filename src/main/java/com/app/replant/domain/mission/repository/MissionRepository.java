@@ -161,4 +161,31 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     @Deprecated
     @Query("SELECT COUNT(m) FROM Mission m WHERE m.isActive = true AND m.missionType = 'OFFICIAL' AND m.category = :category")
     long countActiveByCategory(@Param("category") MissionCategory category);
+
+    // ============================================
+    // 투두리스트용 쿼리
+    // ============================================
+
+    /**
+     * 랜덤 비챌린지 공식 미션 조회 (투두리스트용)
+     * isChallenge가 false이거나 null인 공식 미션을 랜덤으로 조회
+     */
+    @Query(value = "SELECT * FROM mission m WHERE m.mission_source = 'OFFICIAL' " +
+           "AND m.is_active = true AND (m.is_challenge = false OR m.is_challenge IS NULL) " +
+           "ORDER BY RAND() LIMIT :count", nativeQuery = true)
+    List<Mission> findRandomOfficialNonChallengeMissions(@Param("count") int count);
+
+    /**
+     * 비챌린지 커스텀 미션 조회 (투두리스트 커스텀 선택용)
+     */
+    @Query("SELECT m FROM Mission m WHERE m.missionType = 'CUSTOM' AND m.creator.id = :creatorId " +
+           "AND m.isActive = true AND (m.isChallenge = false OR m.isChallenge IS NULL) " +
+           "ORDER BY m.createdAt DESC")
+    List<Mission> findNonChallengeCustomMissionsByCreator(@Param("creatorId") Long creatorId);
+
+    /**
+     * 미션 ID 목록으로 미션 조회
+     */
+    @Query("SELECT m FROM Mission m WHERE m.id IN :missionIds")
+    List<Mission> findByIdIn(@Param("missionIds") List<Long> missionIds);
 }

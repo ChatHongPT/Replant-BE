@@ -59,6 +59,7 @@ public class CustomMissionService {
                 .expReward(request.getExpReward())
                 .badgeDurationDays(request.getBadgeDurationDays())
                 .isActive(true)
+                .isPromoted(false)
                 .build();
 
         CustomMission saved = customMissionRepository.save(customMission);

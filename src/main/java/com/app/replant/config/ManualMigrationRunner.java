@@ -75,6 +75,16 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV16Migration(conn);
             log.info("V16 마이그레이션 완료");
 
+            // V17 마이그레이션: custom_mission.is_promoted 기본값 설정
+            log.info("V17 마이그레이션 실행 중...");
+            executeV17Migration(conn);
+            log.info("V17 마이그레이션 완료");
+
+            // V18 마이그레이션: mission.mission_source DEFAULT 값 제거 및 creator_id 기반 CUSTOM 설정
+            log.info("V18 마이그레이션 실행 중...");
+            executeV18Migration(conn);
+            log.info("V18 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -297,6 +307,34 @@ public class ManualMigrationRunner implements CommandLineRunner {
             // V16: mission.difficulty_level 컬럼 크기 수정 (커스텀 미션 생성 시 Data truncated 오류 수정)
             executeIgnore(stmt, "ALTER TABLE `mission` MODIFY COLUMN `difficulty_level` VARCHAR(10)");
             log.info("V16 마이그레이션: mission.difficulty_level 컬럼 크기 수정 완료");
+        }
+    }
+
+    private void executeV17Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V17: custom_mission.is_promoted 컬럼 기본값 설정
+            executeIgnore(stmt, "ALTER TABLE `custom_mission` MODIFY COLUMN `is_promoted` BOOLEAN NOT NULL DEFAULT FALSE");
+            log.info("V17 마이그레이션: custom_mission.is_promoted 기본값 설정 완료");
+        }
+    }
+
+    private void executeV18Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V18: mission.mission_source DEFAULT 값 제거 및 creator_id 기반 CUSTOM 설정
+
+            // 1. mission_source 컬럼에서 DEFAULT 값 제거 (애플리케이션에서 명시적으로 설정)
+            executeIgnore(stmt, "ALTER TABLE `mission` MODIFY COLUMN `mission_source` VARCHAR(20) NOT NULL");
+
+            // 2. creator_id가 있는 미션 중 mission_source가 OFFICIAL인 것을 CUSTOM으로 수정
+            int updated = stmt.executeUpdate(
+                "UPDATE `mission` SET `mission_source` = 'CUSTOM' " +
+                "WHERE `creator_id` IS NOT NULL AND `mission_source` = 'OFFICIAL'"
+            );
+            if (updated > 0) {
+                log.info("V18 마이그레이션: {} 개의 미션이 CUSTOM으로 변경됨", updated);
+            }
+
+            log.info("V18 마이그레이션: mission.mission_source DEFAULT 값 제거 완료");
         }
     }
 

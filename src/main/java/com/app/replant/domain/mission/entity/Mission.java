@@ -15,7 +15,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "mission", indexes = {
-    @Index(name = "idx_mission_type", columnList = "mission_type"),
+    @Index(name = "idx_mission_source", columnList = "mission_source"),
     @Index(name = "idx_mission_creator", columnList = "creator_id"),
     @Index(name = "idx_mission_is_active", columnList = "is_active")
 })
@@ -29,7 +29,7 @@ public class Mission {
 
     // 미션 타입: OFFICIAL(공식 미션), CUSTOM(커스텀 미션)
     @Enumerated(EnumType.STRING)
-    @Column(name = "mission_type", nullable = false, length = 20)
+    @Column(name = "mission_source", nullable = false, length = 20)
     private MissionType missionType;
 
     // 커스텀 미션 생성자 (CUSTOM인 경우만 사용)

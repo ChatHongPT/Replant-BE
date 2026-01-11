@@ -68,21 +68,23 @@ public class MissionSetController {
     }
 
     @Operation(summary = "공개 미션세트 목록 조회",
-            description = "공개된 미션세트 목록을 담은수 + 평점 순으로 조회합니다.")
+            description = "공개된 미션세트 목록을 조회합니다. sortBy 파라미터로 정렬 기준을 선택할 수 있습니다.")
     @GetMapping
     public ApiResponse<Page<MissionSetDto.SimpleResponse>> getPublicMissionSets(
+            @Parameter(description = "정렬 기준 (popular: 인기순, latest: 최신순)") @RequestParam(required = false, defaultValue = "popular") String sortBy,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<MissionSetDto.SimpleResponse> response = missionSetService.getPublicMissionSets(pageable);
+        Page<MissionSetDto.SimpleResponse> response = missionSetService.getPublicMissionSets(pageable, sortBy);
         return ApiResponse.success(response);
     }
 
     @Operation(summary = "공개 미션세트 검색",
-            description = "키워드로 공개 미션세트를 검색합니다.")
+            description = "키워드로 공개 미션세트를 검색합니다. sortBy 파라미터로 정렬 기준을 선택할 수 있습니다.")
     @GetMapping("/search")
     public ApiResponse<Page<MissionSetDto.SimpleResponse>> searchPublicMissionSets(
             @Parameter(description = "검색 키워드") @RequestParam String keyword,
+            @Parameter(description = "정렬 기준 (popular: 인기순, latest: 최신순)") @RequestParam(required = false, defaultValue = "popular") String sortBy,
             @PageableDefault(size = 20) Pageable pageable) {
-        Page<MissionSetDto.SimpleResponse> response = missionSetService.searchPublicMissionSets(keyword, pageable);
+        Page<MissionSetDto.SimpleResponse> response = missionSetService.searchPublicMissionSets(keyword, pageable, sortBy);
         return ApiResponse.success(response);
     }
 
