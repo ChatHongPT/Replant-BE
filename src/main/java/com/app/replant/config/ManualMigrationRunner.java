@@ -19,7 +19,7 @@ import java.sql.Statement;
  * Flyway가 처리하지 못하는 V6, V7 마이그레이션을 직접 실행
  */
 @Slf4j
-@Component
+// @Component  // 마이그레이션 비활성화 - 테이블 초기화 후 JPA ddl-auto로 자동 생성
 @RequiredArgsConstructor
 public class ManualMigrationRunner implements CommandLineRunner {
 

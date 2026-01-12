@@ -75,9 +75,9 @@ dependencies {
     implementation 'com.mysql:mysql-connector-j'
     runtimeOnly 'com.h2database:h2'
 
-    // Flyway Migration
-    implementation 'org.flywaydb:flyway-core'
-    implementation 'org.flywaydb:flyway-mysql'
+    // Flyway Migration (비활성화 - 나중에 사용 가능)
+    // implementation 'org.flywaydb:flyway-core'
+    // implementation 'org.flywaydb:flyway-mysql'
 
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'

@@ -5,8 +5,8 @@
 # ===========================================
 
 server:
-  port: 3000
-  timezone: Asia/Seoul
+  port: ${env.SERVER_PORT:8080}
+  timezone: ${env.SERVER_TIMEZONE:Asia/Seoul}
 
 spring:
   application:
@@ -20,14 +20,14 @@ spring:
       jdbc-url: ${env.DB1_URL}
       username: ${env.DB1_USERNAME}
       password: ${env.DB1_PASSWORD}
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      connection-timeout: 30000
-      maximum-pool-size: 10
-      minimum-idle: 5
-      max-lifetime: 1800000
-      idle-timeout: 600000
-      leak-detection-threshold: 60000
-      pool-name: MariaDB-HikariPool
+      driver-class-name: ${env.DB_DRIVER:com.mysql.cj.jdbc.Driver}
+      connection-timeout: ${env.DB_CONNECTION_TIMEOUT:30000}
+      maximum-pool-size: ${env.DB_MAX_POOL_SIZE:10}
+      minimum-idle: ${env.DB_MIN_IDLE:5}
+      max-lifetime: ${env.DB_MAX_LIFETIME:1800000}
+      idle-timeout: ${env.DB_IDLE_TIMEOUT:600000}
+      leak-detection-threshold: ${env.DB_LEAK_DETECTION_THRESHOLD:60000}
+      pool-name: ${env.DB_POOL_NAME:MariaDB-HikariPool}
 
   mvc:
     hiddenmethod:
@@ -37,8 +37,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: ${env.MAX_FILE_SIZE:10MB}
+      max-request-size: ${env.MAX_REQUEST_SIZE:10MB}
 
   jackson:
     time-zone: Asia/Seoul
@@ -51,15 +51,9 @@ spring:
         format_sql: true
     show-sql: true
 
-  # Flyway 설정
+  # Flyway 비활성화 (마이그레이션 제거됨)
   flyway:
-    enabled: true
-    baseline-on-migrate: true
-    baseline-version: 0
-    locations: classpath:db/migration
-    validate-on-migrate: false
-    out-of-order: false
-    clean-disabled: false
+    enabled: false
 
   # ===========================================
   # Redis 설정 - .env에서 로드
@@ -69,8 +63,8 @@ spring:
       host: ${env.REDIS_URL:localhost}
       port: ${env.REDIS_PORT:6379}
       password: ${env.REDIS_PASSWORD:}
-      timeout: 2000ms
-      connect-timeout: 2000ms
+      timeout: ${env.REDIS_TIMEOUT:2000ms}
+      connect-timeout: ${env.REDIS_CONNECT_TIMEOUT:2000ms}
 
   # Redis 자동설정 오류 무시
   autoconfigure:
@@ -86,14 +80,14 @@ spring:
   # Mail 설정 (Gmail SMTP) - .env에서 로드
   # ===========================================
   mail:
-    host: smtp.gmail.com
-    port: 587
+    host: ${env.MAIL_HOST:smtp.gmail.com}
+    port: ${env.MAIL_PORT:587}
     username: ${env.GOOGLE_MAIL}
     password: ${env.GOOGLE_APP_PASSWORD}
     properties:
-      mail.smtp.auth: true
-      mail.smtp.starttls.enable: true
-      mail.smtp.starttls.required: true
+      mail.smtp.auth: ${env.MAIL_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${env.MAIL_SMTP_STARTTLS_ENABLE:true}
+      mail.smtp.starttls.required: ${env.MAIL_SMTP_STARTTLS_REQUIRED:true}
 
 # ===========================================
 # JWT 설정 - .env에서 로드
@@ -121,11 +115,11 @@ frontend:
 # Swagger/OpenAPI 설정
 springdoc:
   swagger-ui:
-    path: /swagger-ui.html
+    path: ${env.SWAGGER_UI_PATH:/swagger-ui.html}
     tags-sorter: alpha
     operations-sorter: alpha
   api-docs:
-    path: /v3/api-docs
+    path: ${env.API_DOCS_PATH:/v3/api-docs}
   default-consumes-media-type: application/json
 
 # Actuator 설정
@@ -133,9 +127,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics"
-      base-path: /actuator
+        include: ${env.ACTUATOR_ENDPOINTS:health,info,metrics}
+      base-path: ${env.ACTUATOR_BASE_PATH:/actuator}
   endpoint:
     health:
-      show-details: when-authorized
-      roles: "ADMIN"
+      show-details: ${env.ACTUATOR_HEALTH_SHOW_DETAILS:when-authorized}
+      roles: ${env.ACTUATOR_HEALTH_ROLES:ADMIN}
