@@ -56,9 +56,9 @@ public class OAuthService {
 
         OAuthUserInfo userInfo = oAuthClient.getUserInfo(accessToken);
 
-        // 2. 기존 OAuth 계정 확인
+        // 2. 기존 OAuth 계정 확인 (User 정보와 함께 JOIN FETCH로 조회)
         UserOauth userOauth = userOauthRepository
-                .findByProviderAndProviderId(provider, userInfo.getProviderId())
+                .findByProviderAndProviderIdWithUser(provider, userInfo.getProviderId())
                 .orElse(null);
 
         User user;
