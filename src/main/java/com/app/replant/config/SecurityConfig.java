@@ -148,6 +148,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/custom-missions/**").permitAll() // 커스텀 미션 목록 (공개)
                         .requestMatchers("/api/verifications").permitAll() // 인증 게시판 목록 (공개)
                         .requestMatchers("/api/posts").permitAll() // 게시글 목록 (공개)
+                        .requestMatchers("/api/todolists/public/**").permitAll() // 공개 투두리스트 (공개)
                         .requestMatchers("/ws/**").permitAll() // WebSocket
                         .requestMatchers("/files/**").permitAll() // 파일 업로드/다운로드
                         // Actuator - 공개 엔드포인트만 허용 (health, info)

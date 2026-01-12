@@ -31,6 +31,11 @@ public interface MissionSetReviewRepository extends JpaRepository<MissionSetRevi
     Page<MissionSetReview> findByMissionSetOrderByCreatedAtDesc(MissionSet missionSet, Pageable pageable);
 
     /**
+     * 미션세트의 모든 리뷰 조회 (평균 계산용)
+     */
+    java.util.List<MissionSetReview> findByMissionSet(MissionSet missionSet);
+
+    /**
      * 미션세트의 평균 별점 계산
      */
     @Query("SELECT AVG(r.rating) FROM MissionSetReview r WHERE r.missionSet = :missionSet")

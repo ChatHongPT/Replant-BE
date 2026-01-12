@@ -8,8 +8,10 @@ import com.app.replant.domain.missionset.entity.MissionSetMission;
 import com.app.replant.domain.missionset.enums.MissionSetType;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
+import com.app.replant.domain.missionset.entity.MissionSetReview;
 import com.app.replant.domain.missionset.repository.MissionSetMissionRepository;
 import com.app.replant.domain.missionset.repository.MissionSetRepository;
+import com.app.replant.domain.missionset.repository.MissionSetReviewRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
@@ -36,6 +38,7 @@ public class TodoListService {
 
     private final MissionSetRepository missionSetRepository;
     private final MissionSetMissionRepository missionSetMissionRepository;
+    private final MissionSetReviewRepository reviewRepository;
     private final MissionRepository missionRepository;
     private final UserRepository userRepository;
     private final UserMissionRepository userMissionRepository;
@@ -356,5 +359,197 @@ public class TodoListService {
                 .stream()
                 .map(TodoListDto.SimpleResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    // ============ 공개 투두리스트 관련 메서드들 ============
+
+    /**
+     * 공개 투두리스트 목록 조회 (정렬 옵션: popular, latest)
+     */
+    public Page<TodoListDto.PublicResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
+        if ("latest".equalsIgnoreCase(sortBy)) {
+            return missionSetRepository.findPublicMissionSetsOrderByLatest(pageable)
+                    .map(TodoListDto.PublicResponse::from);
+        }
+        // 기본값: 인기순 (popular)
+        return missionSetRepository.findPublicMissionSetsOrderByPopularity(pageable)
+                .map(TodoListDto.PublicResponse::from);
+    }
+
+    /**
+     * 공개 투두리스트 검색 (정렬 옵션: popular, latest)
+     */
+    public Page<TodoListDto.PublicResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
+        if ("latest".equalsIgnoreCase(sortBy)) {
+            return missionSetRepository.searchPublicMissionSetsOrderByLatest(keyword, pageable)
+                    .map(TodoListDto.PublicResponse::from);
+        }
+        // 기본값: 인기순 (popular)
+        return missionSetRepository.searchPublicMissionSetsOrderByPopularity(keyword, pageable)
+                .map(TodoListDto.PublicResponse::from);
+    }
+
+    /**
+     * 공개 투두리스트 상세 조회
+     */
+    public TodoListDto.PublicDetailResponse getPublicTodoListDetail(Long todoListId) {
+        MissionSet todoList = missionSetRepository.findByIdWithMissions(todoListId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+        // 비공개 투두리스트는 조회 불가
+        if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "비공개 투두리스트입니다.");
+        }
+
+        return TodoListDto.PublicDetailResponse.from(todoList);
+    }
+
+    /**
+     * 투두리스트 담기 (다른 사용자의 공개 투두리스트 복사)
+     */
+    @Transactional
+    public TodoListDto.DetailResponse copyTodoList(Long todoListId, Long userId) {
+        MissionSet originalList = missionSetRepository.findByIdWithMissions(todoListId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+        // 공개 투두리스트만 담기 가능
+        if (!Boolean.TRUE.equals(originalList.getIsPublic())) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "비공개 투두리스트는 담을 수 없습니다.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 원본 투두리스트의 담은 수 증가
+        originalList.incrementAddedCount();
+
+        // 새 투두리스트 생성
+        int missionCount = originalList.getMissions() != null ? originalList.getMissions().size() : 5;
+        MissionSet newTodoList = MissionSet.todoListBuilder()
+                .creator(user)
+                .title(originalList.getTitle())
+                .description(originalList.getDescription())
+                .totalCount(missionCount)
+                .build();
+
+        // 미션 복사
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime defaultDueDate = now.plusDays(7);
+
+        for (MissionSetMission originalMsm : originalList.getMissions()) {
+            Mission mission = originalMsm.getMission();
+
+            MissionSetMission newMsm = MissionSetMission.todoMissionBuilder()
+                    .missionSet(newTodoList)
+                    .mission(mission)
+                    .displayOrder(originalMsm.getDisplayOrder())
+                    .missionSource(MissionSource.CUSTOM_SELECTED) // 담은 미션은 커스텀으로 표시
+                    .build();
+            newTodoList.getMissions().add(newMsm);
+
+            // UserMission 생성
+            LocalDateTime dueDate = mission.getDurationDays() != null
+                    ? now.plusDays(mission.getDurationDays())
+                    : defaultDueDate;
+            UserMission userMission = UserMission.builder()
+                    .user(user)
+                    .mission(mission)
+                    .missionType(mission.getMissionType())
+                    .assignedAt(now)
+                    .dueDate(dueDate)
+                    .status(UserMissionStatus.ASSIGNED)
+                    .build();
+            userMissionRepository.save(userMission);
+        }
+
+        missionSetRepository.save(newTodoList);
+
+        log.info("투두리스트 담기 완료: originalId={}, newId={}, userId={}", todoListId, newTodoList.getId(), userId);
+        return TodoListDto.DetailResponse.from(newTodoList);
+    }
+
+    // ============ 리뷰 관련 메서드들 ============
+
+    /**
+     * 투두리스트 리뷰 작성
+     */
+    @Transactional
+    public TodoListDto.ReviewResponse createReview(Long todoListId, Long userId, TodoListDto.ReviewRequest request) {
+        MissionSet todoList = missionSetRepository.findById(todoListId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+        // 비공개 투두리스트에는 리뷰 작성 불가
+        if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "비공개 투두리스트에는 리뷰를 작성할 수 없습니다.");
+        }
+
+        // 자신의 투두리스트에는 리뷰 작성 불가
+        if (todoList.isCreator(userId)) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "자신의 투두리스트에는 리뷰를 작성할 수 없습니다.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 이미 리뷰를 작성했는지 확인
+        if (reviewRepository.existsByMissionSetAndUser(todoList, user)) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 리뷰를 작성했습니다.");
+        }
+
+        // 리뷰 생성
+        MissionSetReview review = MissionSetReview.builder()
+                .missionSet(todoList)
+                .user(user)
+                .rating(request.getRating())
+                .content(request.getContent())
+                .build();
+        reviewRepository.save(review);
+
+        // 평균 별점 업데이트
+        updateAverageRating(todoList);
+
+        log.info("투두리스트 리뷰 작성: todoListId={}, userId={}", todoListId, userId);
+        return buildReviewResponse(review);
+    }
+
+    /**
+     * 투두리스트 리뷰 목록 조회
+     */
+    public Page<TodoListDto.ReviewResponse> getReviews(Long todoListId, Pageable pageable) {
+        MissionSet todoList = missionSetRepository.findById(todoListId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+        return reviewRepository.findByMissionSetOrderByCreatedAtDesc(todoList, pageable)
+                .map(this::buildReviewResponse);
+    }
+
+    /**
+     * 평균 별점 업데이트
+     */
+    private void updateAverageRating(MissionSet missionSet) {
+        List<MissionSetReview> reviews = reviewRepository.findByMissionSet(missionSet);
+        if (!reviews.isEmpty()) {
+            double avgRating = reviews.stream()
+                    .mapToInt(MissionSetReview::getRating)
+                    .average()
+                    .orElse(0.0);
+            missionSet.updateRating(avgRating, reviews.size());
+        }
+    }
+
+    /**
+     * ReviewResponse 빌드 헬퍼
+     */
+    private TodoListDto.ReviewResponse buildReviewResponse(MissionSetReview review) {
+        return TodoListDto.ReviewResponse.builder()
+                .id(review.getId())
+                .todoListId(review.getMissionSet().getId())
+                .userId(review.getUser().getId())
+                .userNickname(review.getUser().getNickname())
+                .rating(review.getRating())
+                .content(review.getContent())
+                .createdAt(review.getCreatedAt())
+                .updatedAt(review.getUpdatedAt())
+                .build();
     }
 }

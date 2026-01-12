@@ -151,4 +151,120 @@ public class TodoListDto {
                     .build();
         }
     }
+
+    // ============ 공개 투두리스트용 DTOs ============
+
+    @Getter
+    @Builder
+    public static class PublicResponse {
+        private Long id;
+        private String title;
+        private String description;
+        private Long creatorId;
+        private String creatorNickname;
+        private Integer missionCount;
+        private Integer addedCount;      // 담은 횟수
+        private Double averageRating;    // 평균 별점
+        private Integer reviewCount;     // 리뷰 수
+        private LocalDateTime createdAt;
+
+        public static PublicResponse from(MissionSet missionSet) {
+            return PublicResponse.builder()
+                    .id(missionSet.getId())
+                    .title(missionSet.getTitle())
+                    .description(missionSet.getDescription())
+                    .creatorId(missionSet.getCreator().getId())
+                    .creatorNickname(missionSet.getCreator().getNickname())
+                    .missionCount(missionSet.getMissions() != null ? missionSet.getMissions().size() : 0)
+                    .addedCount(missionSet.getAddedCount() != null ? missionSet.getAddedCount() : 0)
+                    .averageRating(missionSet.getAverageRating() != null ? missionSet.getAverageRating() : 0.0)
+                    .reviewCount(missionSet.getReviewCount() != null ? missionSet.getReviewCount() : 0)
+                    .createdAt(missionSet.getCreatedAt())
+                    .build();
+        }
+    }
+
+    @Getter
+    @Builder
+    public static class PublicDetailResponse {
+        private Long id;
+        private String title;
+        private String description;
+        private Long creatorId;
+        private String creatorNickname;
+        private Integer missionCount;
+        private Integer addedCount;
+        private Double averageRating;
+        private Integer reviewCount;
+        private List<PublicMissionInfo> missions;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public static PublicDetailResponse from(MissionSet missionSet) {
+            List<PublicMissionInfo> missionInfos = missionSet.getMissions() != null
+                    ? missionSet.getMissions().stream().map(PublicMissionInfo::from).collect(Collectors.toList())
+                    : new ArrayList<>();
+
+            return PublicDetailResponse.builder()
+                    .id(missionSet.getId())
+                    .title(missionSet.getTitle())
+                    .description(missionSet.getDescription())
+                    .creatorId(missionSet.getCreator().getId())
+                    .creatorNickname(missionSet.getCreator().getNickname())
+                    .missionCount(missionInfos.size())
+                    .addedCount(missionSet.getAddedCount() != null ? missionSet.getAddedCount() : 0)
+                    .averageRating(missionSet.getAverageRating() != null ? missionSet.getAverageRating() : 0.0)
+                    .reviewCount(missionSet.getReviewCount() != null ? missionSet.getReviewCount() : 0)
+                    .missions(missionInfos)
+                    .createdAt(missionSet.getCreatedAt())
+                    .updatedAt(missionSet.getUpdatedAt())
+                    .build();
+        }
+    }
+
+    @Getter
+    @Builder
+    public static class PublicMissionInfo {
+        private Long missionId;
+        private String title;
+        private String description;
+        private String category;
+        private String verificationType;
+        private Integer expReward;
+        private Integer displayOrder;
+
+        public static PublicMissionInfo from(MissionSetMission msm) {
+            Mission mission = msm.getMission();
+            return PublicMissionInfo.builder()
+                    .missionId(mission.getId())
+                    .title(mission.getTitle())
+                    .description(mission.getDescription())
+                    .category(mission.getCategory().name())
+                    .verificationType(mission.getVerificationType().name())
+                    .expReward(mission.getExpReward())
+                    .displayOrder(msm.getDisplayOrder())
+                    .build();
+        }
+    }
+
+    // ============ 리뷰용 DTOs ============
+
+    @Getter
+    public static class ReviewRequest {
+        private Integer rating;  // 1-5
+        private String content;
+    }
+
+    @Getter
+    @Builder
+    public static class ReviewResponse {
+        private Long id;
+        private Long todoListId;
+        private Long userId;
+        private String userNickname;
+        private Integer rating;
+        private String content;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+    }
 }

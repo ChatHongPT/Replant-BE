@@ -85,6 +85,17 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV18Migration(conn);
             log.info("V18 마이그레이션 완료");
 
+            // V21 마이그레이션: mission_source를 mission_type으로 변경, GPS 컬럼 삭제, type 컬럼 삭제
+            boolean needV21 = columnExists(stmt, "mission", "mission_source") &&
+                              !columnExists(stmt, "mission", "mission_type");
+            if (needV21) {
+                log.info("V21 마이그레이션 실행 중...");
+                executeV21Migration(conn);
+                log.info("V21 마이그레이션 완료");
+            } else {
+                log.info("V21 마이그레이션 스킵 (이미 적용됨)");
+            }
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -338,11 +349,111 @@ public class ManualMigrationRunner implements CommandLineRunner {
         }
     }
 
+    private void executeV21Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V21: mission_source를 mission_type으로 변경, GPS 컬럼 삭제, type 컬럼 삭제
+
+            // 1. mission_source 컬럼을 mission_type으로 이름 변경
+            executeIgnore(stmt,
+                "ALTER TABLE `mission` CHANGE COLUMN `mission_source` `mission_type` VARCHAR(20) NOT NULL"
+            );
+            log.info("V21 마이그레이션: mission_source를 mission_type으로 변경 완료");
+
+            // 2. GPS 관련 컬럼 삭제
+            executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `gps_latitude`");
+            executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `gps_longitude`");
+            executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `gps_radius_meters`");
+            log.info("V21 마이그레이션: GPS 관련 컬럼 삭제 완료");
+
+            // 3. type 컬럼 삭제 (DAILY, WEEKLY 등 - 더 이상 사용하지 않음)
+            executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `type`");
+            log.info("V21 마이그레이션: type 컬럼 삭제 완료");
+
+            // 4. 기존 인덱스 삭제 후 새 인덱스 생성
+            executeIgnore(stmt, "ALTER TABLE `mission` DROP INDEX `idx_mission_source`");
+            executeIgnore(stmt, "CREATE INDEX `idx_mission_type` ON `mission`(`mission_type`)");
+            log.info("V21 마이그레이션: 인덱스 업데이트 완료");
+
+            // 5. custom_mission 테이블에서도 GPS 컬럼 삭제 (존재하면)
+            executeIgnore(stmt, "ALTER TABLE `custom_mission` DROP COLUMN `gps_latitude`");
+            executeIgnore(stmt, "ALTER TABLE `custom_mission` DROP COLUMN `gps_longitude`");
+            executeIgnore(stmt, "ALTER TABLE `custom_mission` DROP COLUMN `gps_radius_meters`");
+            log.info("V21 마이그레이션: custom_mission GPS 관련 컬럼 삭제 완료");
+
+            log.info("V21 마이그레이션: mission_source → mission_type 변경 및 GPS 컬럼 삭제 완료");
+        }
+    }
+
     private void executeIgnore(Statement stmt, String sql) {
         try {
             stmt.execute(sql);
         } catch (Exception e) {
             log.debug("SQL 실행 (무시): {} - {}", sql.substring(0, Math.min(50, sql.length())), e.getMessage());
+        }
+    }
+
+    private void executeV22Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V22: SoftDelete를 위한 deleted_at 컬럼 추가
+
+            // 1. comment 테이블에 deleted_at, target_type, target_id 컬럼 추가
+            executeIgnore(stmt, "ALTER TABLE `comment` ADD COLUMN `deleted_at` TIMESTAMP NULL");
+            executeIgnore(stmt, "ALTER TABLE `comment` ADD COLUMN `target_type` VARCHAR(50) NULL");
+            executeIgnore(stmt, "ALTER TABLE `comment` ADD COLUMN `target_id` BIGINT NULL");
+            log.info("V22 마이그레이션: comment 테이블에 컬럼 추가 완료");
+
+            // 2. mission_set 테이블 생성 (없으면)
+            executeIgnore(stmt,
+                "CREATE TABLE IF NOT EXISTS `mission_set` (" +
+                "`id` BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "`creator_id` BIGINT NOT NULL," +
+                "`title` VARCHAR(100) NOT NULL," +
+                "`description` TEXT NULL," +
+                "`is_public` BOOLEAN NOT NULL DEFAULT FALSE," +
+                "`added_count` INT NOT NULL DEFAULT 0," +
+                "`average_rating` DOUBLE NOT NULL DEFAULT 0," +
+                "`review_count` INT NOT NULL DEFAULT 0," +
+                "`is_active` BOOLEAN NOT NULL DEFAULT TRUE," +
+                "`set_type` VARCHAR(20) NULL," +
+                "`completed_count` INT NULL," +
+                "`total_count` INT NULL," +
+                "`todolist_status` VARCHAR(20) NULL," +
+                "`deleted_at` TIMESTAMP NULL," +
+                "`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "`updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
+                "INDEX `idx_mission_set_creator` (`creator_id`)," +
+                "INDEX `idx_mission_set_is_public` (`is_public`)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+
+            // 3. 기존 mission_set 테이블에 deleted_at 컬럼 추가 (이미 테이블이 있을 경우)
+            executeIgnore(stmt, "ALTER TABLE `mission_set` ADD COLUMN `deleted_at` TIMESTAMP NULL");
+            log.info("V22 마이그레이션: mission_set 테이블 설정 완료");
+
+            // 4. mission_set_mission 테이블 생성 (없으면)
+            executeIgnore(stmt,
+                "CREATE TABLE IF NOT EXISTS `mission_set_mission` (" +
+                "`id` BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "`mission_set_id` BIGINT NOT NULL," +
+                "`mission_id` BIGINT NULL," +
+                "`display_order` INT NOT NULL DEFAULT 0," +
+                "`is_completed` BOOLEAN NOT NULL DEFAULT FALSE," +
+                "`created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "INDEX `idx_mission_set_mission_set` (`mission_set_id`)," +
+                "INDEX `idx_mission_set_mission_mission` (`mission_id`)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+            log.info("V22 마이그레이션: mission_set_mission 테이블 설정 완료");
+
+            // 5. diary 테이블에 deleted_at 컬럼 추가
+            executeIgnore(stmt, "ALTER TABLE `diary` ADD COLUMN `deleted_at` TIMESTAMP NULL");
+            log.info("V22 마이그레이션: diary 테이블에 deleted_at 추가 완료");
+
+            // 6. notification 테이블에 deleted_at 컬럼 추가
+            executeIgnore(stmt, "ALTER TABLE `notification` ADD COLUMN `deleted_at` TIMESTAMP NULL");
+            log.info("V22 마이그레이션: notification 테이블에 deleted_at 추가 완료");
+
+            log.info("V22 마이그레이션: SoftDelete 컬럼 추가 완료");
         }
     }
 }

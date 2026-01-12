@@ -191,4 +191,77 @@ public class TodoListController {
         TodoListDto.DetailResponse response = todoListService.unshareTodoList(todoListId, userId);
         return ApiResponse.success(response);
     }
+
+    // ============ 공개 투두 조회 및 담기 API ============
+
+    @Operation(summary = "공개 투두리스트 목록 조회",
+            description = "다른 사용자가 공유한 공개 투두리스트 목록을 조회합니다. sortBy 파라미터로 정렬 기준을 선택할 수 있습니다.")
+    @GetMapping("/public")
+    public ApiResponse<Page<TodoListDto.PublicResponse>> getPublicTodoLists(
+            @Parameter(description = "정렬 기준 (popular: 인기순, latest: 최신순)") @RequestParam(required = false, defaultValue = "popular") String sortBy,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<TodoListDto.PublicResponse> response = todoListService.getPublicTodoLists(pageable, sortBy);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "공개 투두리스트 검색",
+            description = "키워드로 공개 투두리스트를 검색합니다. sortBy 파라미터로 정렬 기준을 선택할 수 있습니다.")
+    @GetMapping("/public/search")
+    public ApiResponse<Page<TodoListDto.PublicResponse>> searchPublicTodoLists(
+            @Parameter(description = "검색 키워드") @RequestParam String keyword,
+            @Parameter(description = "정렬 기준 (popular: 인기순, latest: 최신순)") @RequestParam(required = false, defaultValue = "popular") String sortBy,
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<TodoListDto.PublicResponse> response = todoListService.searchPublicTodoLists(keyword, pageable, sortBy);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "공개 투두리스트 상세 조회",
+            description = "공개 투두리스트의 상세 정보와 포함된 미션 목록을 조회합니다.")
+    @GetMapping("/public/{todoListId}")
+    public ApiResponse<TodoListDto.PublicDetailResponse> getPublicTodoListDetail(
+            @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId) {
+        TodoListDto.PublicDetailResponse response = todoListService.getPublicTodoListDetail(todoListId);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "투두리스트 담기",
+            description = "다른 사용자의 공개 투두리스트를 내 투두리스트로 복사합니다.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "담기 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "비공개 투두리스트"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "투두리스트를 찾을 수 없음")
+    })
+    @PostMapping("/{todoListId}/copy")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<TodoListDto.DetailResponse> copyTodoList(
+            @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
+            @AuthenticationPrincipal Long userId) {
+        TodoListDto.DetailResponse response = todoListService.copyTodoList(todoListId, userId);
+        return ApiResponse.success(response);
+    }
+
+    // ============ 투두리스트 리뷰 API ============
+
+    @Operation(summary = "투두리스트 리뷰 작성",
+            description = "공개 투두리스트에 리뷰를 작성합니다. 자신의 투두리스트에는 작성 불가.")
+    @PostMapping("/{todoListId}/reviews")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<TodoListDto.ReviewResponse> createReview(
+            @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody TodoListDto.ReviewRequest request) {
+        TodoListDto.ReviewResponse response = todoListService.createReview(todoListId, userId, request);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "투두리스트 리뷰 목록 조회",
+            description = "투두리스트의 리뷰 목록을 조회합니다.")
+    @GetMapping("/{todoListId}/reviews")
+    public ApiResponse<Page<TodoListDto.ReviewResponse>> getReviews(
+            @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<TodoListDto.ReviewResponse> response = todoListService.getReviews(todoListId, pageable);
+        return ApiResponse.success(response);
+    }
 }
