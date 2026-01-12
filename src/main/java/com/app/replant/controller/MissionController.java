@@ -78,8 +78,50 @@ public class MissionController {
         return ApiResponse.success(review);
     }
 
+    // ============ 커스텀 미션 CRUD API ============
 
+    @Operation(summary = "커스텀 미션 목록 조회", description = "공개된 커스텀 미션 목록을 조회합니다.")
+    @GetMapping("/custom")
+    public ApiResponse<Page<MissionResponse>> getCustomMissions(
+            @RequestParam(required = false) VerificationType verificationType,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionResponse> missions = missionService.getCustomMissions(verificationType, pageable);
+        return ApiResponse.success(missions);
+    }
 
+    @Operation(summary = "커스텀 미션 상세 조회")
+    @GetMapping("/custom/{customMissionId}")
+    public ApiResponse<MissionResponse> getCustomMission(@PathVariable Long customMissionId) {
+        MissionResponse mission = missionService.getCustomMission(customMissionId);
+        return ApiResponse.success(mission);
+    }
 
+    @Operation(summary = "커스텀 미션 생성", description = "새로운 커스텀 미션을 생성합니다. 로그인 필요.")
+    @PostMapping("/custom")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<MissionResponse> createCustomMission(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid MissionRequest request) {
+        MissionResponse mission = missionService.createCustomMission(userId, request);
+        return ApiResponse.success(mission);
+    }
 
+    @Operation(summary = "커스텀 미션 수정", description = "자신이 만든 커스텀 미션을 수정합니다.")
+    @PutMapping("/custom/{customMissionId}")
+    public ApiResponse<MissionResponse> updateCustomMission(
+            @PathVariable Long customMissionId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid MissionRequest request) {
+        MissionResponse mission = missionService.updateCustomMission(customMissionId, userId, request);
+        return ApiResponse.success(mission);
+    }
+
+    @Operation(summary = "커스텀 미션 삭제", description = "자신이 만든 커스텀 미션을 삭제합니다.")
+    @DeleteMapping("/custom/{customMissionId}")
+    public ApiResponse<Void> deleteCustomMission(
+            @PathVariable Long customMissionId,
+            @AuthenticationPrincipal Long userId) {
+        missionService.deleteCustomMission(customMissionId, userId);
+        return ApiResponse.success(null);
+    }
 }

@@ -242,10 +242,6 @@ public class SseController {
                 return ((UserDetail) principal).getId();
             }
 
-            // MemberDetail (레거시) 지원 - 하위 호환성
-            if (principal instanceof com.app.replant.jwt.MemberDetail) {
-                return ((com.app.replant.jwt.MemberDetail) principal).getId();
-            }
 
             log.warn("지원하지 않는 Principal 타입: {}", principal.getClass().getName());
             return null;

@@ -261,8 +261,8 @@ public class PostService {
             isLiked = true;
             log.info("좋아요 추가 - postId={}, userId={}", postId, userId);
 
-            // 좋아요 알림
-            sendLikeNotification(post.getUser(), user, post);
+            // 좋아요 알림 (임시 비활성화 - notification 테이블 마이그레이션 필요)
+            // sendLikeNotification(post.getUser(), user, post);
 
             // VERIFICATION 타입: 좋아요 = 인증 체크
             if (post.isVerificationPost()) {

@@ -100,11 +100,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.res(200, "사용자의 정보를 불러왔습니다", userDto));
     }
 
-    @GetMapping("searchId")
-    public ResponseEntity<String> getUserEmailByNicknameAndPhone(@Parameter MemberSearchIdDto memberSearchIdDto) {
-        User foundUser = authService.findUserByNicknameAndPhone(memberSearchIdDto);
-        return ResponseEntity.ok(foundUser.getEmail());
-    }
 
     @Operation(summary = "이메일 인증번호 발송", description = "회원가입을 위한 인증번호를 이메일로 발송합니다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "인증번호 발송 성공")

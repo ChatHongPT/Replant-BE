@@ -221,20 +221,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public User findUserByNicknameAndPhone(MemberSearchIdDto memberSearchIdDto) {
-        if (memberSearchIdDto.getName().isEmpty() || memberSearchIdDto.getPhone().isEmpty()) {
-            throw new CustomException(ErrorCode.INVALID_FORMAT);
-        }
-        User user = userRepository.findByNicknameAndPhone(memberSearchIdDto.getName(), memberSearchIdDto.getPhone())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
-        }
-        return user;
-    }
-    
-    @Override
     public void logout(String email, String accessToken) {
         // 1. AccessToken의 남은 유효기간 계산
         long remainingSeconds = tokenProvider.getRemainingExpirationTime(accessToken);

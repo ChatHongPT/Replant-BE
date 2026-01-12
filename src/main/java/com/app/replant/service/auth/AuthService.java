@@ -21,7 +21,6 @@ public interface AuthService {
 
     TokenDto refresh(TokenRequestDto tokenRequestDto);
 
-    User findUserByNicknameAndPhone(MemberSearchIdDto memberSearchIdDto);
 
     void logout(String email, String accessToken);
 

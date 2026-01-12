@@ -30,6 +30,4 @@ public class MainDto {
     @Schema(description = "카테고리별 지출 TOP 5")
     private List<CategorySpendDto> paidPriceOfCategory;
     
-    @Schema(description = "추천 카드 TOP 3")
-    private List<CardRecommendDto> cardRecommend;
 }

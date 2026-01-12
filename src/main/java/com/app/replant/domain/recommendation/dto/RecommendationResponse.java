@@ -78,12 +78,6 @@ public class RecommendationResponse {
                     .title(recommendation.getMission().getTitle())
                     .type("SYSTEM")
                     .build());
-        } else if (recommendation.getCustomMission() != null) {
-            builder.mission(MissionInfo.builder()
-                    .id(recommendation.getCustomMission().getId())
-                    .title(recommendation.getCustomMission().getTitle())
-                    .type("CUSTOM")
-                    .build());
         }
 
         // Match reason

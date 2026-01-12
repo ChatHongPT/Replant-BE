@@ -105,6 +105,24 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("mission_source 컬럼 삭제 완료");
             }
 
+            // V22: comment 테이블에 deleted_at 컬럼 추가
+            if (!columnExists(stmt, "comment", "deleted_at")) {
+                log.info("V22 마이그레이션 실행 중: comment.deleted_at 컬럼 추가...");
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute("ALTER TABLE `comment` ADD COLUMN `deleted_at` DATETIME NULL");
+                }
+                log.info("V22 마이그레이션 완료: comment.deleted_at 컬럼 추가됨");
+            }
+
+            // V23: notification 테이블에 deleted_at 컬럼 추가
+            if (!columnExists(stmt, "notification", "deleted_at")) {
+                log.info("V23 마이그레이션 실행 중: notification.deleted_at 컬럼 추가...");
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute("ALTER TABLE `notification` ADD COLUMN `deleted_at` DATETIME NULL");
+                }
+                log.info("V23 마이그레이션 완료: notification.deleted_at 컬럼 추가됨");
+            }
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }

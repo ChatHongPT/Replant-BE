@@ -118,3 +118,46 @@ tasks.named('test') {
 clean {
     delete file(querydslDir)
 }
+
+// Custom task to run database migration
+task runMigration {
+    doLast {
+        def url = 'jdbc:mysql://113.198.66.75:13150/replant?useSSL=false&allowPublicKeyRetrieval=true'
+        def user = 'replant_admin'
+        def password = 'replant2025'
+
+        def driver = Class.forName('com.mysql.cj.jdbc.Driver').getDeclaredConstructor().newInstance()
+        def conn = java.sql.DriverManager.getConnection(url, user, password)
+        def stmt = conn.createStatement()
+
+        def sqls = [
+            "DROP TABLE IF EXISTS mission_qna_answer",
+            "DROP TABLE IF EXISTS mission_qna",
+            "DROP TABLE IF EXISTS chat_message",
+            "DROP TABLE IF EXISTS chat_room",
+            "DROP TABLE IF EXISTS member_card",
+            "DROP TABLE IF EXISTS card",
+            "DROP TABLE IF EXISTS goal",
+            "DROP TABLE IF EXISTS member",
+            "DROP TABLE IF EXISTS custom_mission"
+        ]
+
+        sqls.each { sql ->
+            println "Executing: ${sql}"
+            stmt.execute(sql)
+        }
+
+        try {
+            stmt.execute("ALTER TABLE user_recommendation DROP COLUMN custom_mission_id")
+            println "Dropped custom_mission_id column"
+        } catch (Exception e) {
+            println "Column might not exist: ${e.message}"
+        }
+
+        stmt.close()
+        conn.close()
+        println "Migration completed successfully!"
+    }
+}
+
+runMigration.dependsOn classes
