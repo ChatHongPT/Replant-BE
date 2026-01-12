@@ -108,6 +108,14 @@ public class User extends BaseEntity {
     @Column(name = "fcm_token", length = 500)
     private String fcmToken;
 
+    // 삭제 플래그 (소프트 삭제)
+    @Column(name = "del_flag", nullable = false)
+    private Boolean delFlag = false;
+
+    // 차단 여부
+    @Column(name = "blocked", nullable = false)
+    private Boolean blocked = false;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<UserOauth> oauthList = new ArrayList<>();
 
