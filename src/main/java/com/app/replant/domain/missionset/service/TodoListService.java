@@ -590,6 +590,167 @@ public class TodoListService {
                 return TodoListDto.DetailResponse.from(todoList);
         }
 
-        // ... 나머지 메서드들은 이미 수정 확인됨 ...
-        // deleteActiveTodoList etc.
+        /**
+         * 내 리뷰 조회
+         */
+        public TodoListDto.ReviewResponse getMyReview(Long todoListId, Long userId) {
+                TodoList todoList = todoListRepository.findById(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+                return reviewRepository.findByTodoListAndUser(todoList, user)
+                                .map(this::buildReviewResponse)
+                                .orElse(null);
+        }
+
+        /**
+         * 리뷰 수정
+         */
+        @Transactional
+        public TodoListDto.ReviewResponse updateReview(Long reviewId, Long userId, TodoListDto.UpdateReviewRequest request) {
+                TodoListReview review = reviewRepository.findById(reviewId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+
+                // 본인 리뷰만 수정 가능
+                if (!review.getUser().getId().equals(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                review.update(request.getRating(), request.getContent());
+
+                // 평균 별점 업데이트
+                updateAverageRating(review.getTodoList());
+
+                log.info("투두리스트 리뷰 수정: reviewId={}, userId={}", reviewId, userId);
+                return buildReviewResponse(review);
+        }
+
+        /**
+         * 리뷰 삭제
+         */
+        @Transactional
+        public void deleteReview(Long reviewId, Long userId) {
+                TodoListReview review = reviewRepository.findById(reviewId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+
+                // 본인 리뷰만 삭제 가능
+                if (!review.getUser().getId().equals(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                TodoList todoList = review.getTodoList();
+                reviewRepository.delete(review);
+
+                // 평균 별점 업데이트
+                updateAverageRating(todoList);
+
+                log.info("투두리스트 리뷰 삭제: reviewId={}, userId={}", reviewId, userId);
+        }
+
+        /**
+         * 투두리스트 삭제
+         */
+        @Transactional
+        public void deleteTodoList(Long todoListId, Long userId) {
+                TodoList todoList = todoListRepository.findById(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 본인만 삭제 가능
+                if (!todoList.isCreator(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                todoList.setActive(false);
+                log.info("투두리스트 삭제 완료: todoListId={}, userId={}", todoListId, userId);
+        }
+
+        /**
+         * 투두리스트에 미션 추가
+         */
+        @Transactional
+        public TodoListDto.DetailResponse addMissionToTodoList(Long todoListId, Long userId, TodoListDto.AddMissionRequest request) {
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 본인만 추가 가능
+                if (!todoList.isCreator(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                Mission mission = missionRepository.findById(request.getMissionId())
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+
+                // 이미 존재하는 미션인지 확인
+                if (todoListMissionRepository.existsByTodoListAndMission(todoList, mission)) {
+                        throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 추가된 미션입니다.");
+                }
+
+                // 최대 순서 조회
+                Integer maxOrder = todoListMissionRepository.findMaxDisplayOrderByTodoList(todoList);
+
+                TodoListMission msm = TodoListMission.todoMissionBuilder()
+                                .todoList(todoList)
+                                .mission(mission)
+                                .displayOrder(maxOrder + 1)
+                                .missionSource(MissionSource.CUSTOM_SELECTED)
+                                .build();
+
+                todoList.addMission(msm);
+                todoListMissionRepository.save(msm);
+
+                log.info("투두리스트에 미션 추가: todoListId={}, missionId={}", todoListId, request.getMissionId());
+                return TodoListDto.DetailResponse.from(todoList);
+        }
+
+        /**
+         * 투두리스트에서 미션 제거
+         */
+        @Transactional
+        public TodoListDto.DetailResponse removeMissionFromTodoList(Long todoListId, Long missionId, Long userId) {
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 본인만 제거 가능
+                if (!todoList.isCreator(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                Mission mission = missionRepository.findById(missionId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+
+                TodoListMission msm = todoListMissionRepository.findByTodoListAndMission(todoList, mission)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_IN_SET));
+
+                todoList.removeMission(msm);
+                todoListMissionRepository.delete(msm);
+
+                log.info("투두리스트에서 미션 제거: todoListId={}, missionId={}", todoListId, missionId);
+                return TodoListDto.DetailResponse.from(todoList);
+        }
+
+        /**
+         * 투두리스트 미션 순서 변경
+         */
+        @Transactional
+        public TodoListDto.DetailResponse reorderMissions(Long todoListId, Long userId, TodoListDto.ReorderMissionsRequest request) {
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 본인만 순서 변경 가능
+                if (!todoList.isCreator(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                for (TodoListDto.ReorderMissionsRequest.MissionOrderItem item : request.getMissions()) {
+                        todoList.getMissions().stream()
+                                        .filter(msm -> msm.getMission().getId().equals(item.getMissionId()))
+                                        .findFirst()
+                                        .ifPresent(msm -> msm.updateDisplayOrder(item.getDisplayOrder()));
+                }
+
+                log.info("투두리스트 미션 순서 변경: todoListId={}", todoListId);
+                return TodoListDto.DetailResponse.from(todoList);
+        }
 }

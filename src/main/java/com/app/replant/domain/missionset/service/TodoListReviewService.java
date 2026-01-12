@@ -30,8 +30,7 @@ public class TodoListReviewService {
      * 리뷰 작성
      */
     @Transactional
-    public TodoListReviewDto.Response createReview(Long todoListId, Long userId,
-            TodoListReviewDto.CreateRequest request) {
+    public TodoListReviewDto.Response createReview(Long todoListId, Long userId, TodoListReviewDto.CreateRequest request) {
         TodoList todoList = todoListRepository.findById(todoListId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
@@ -68,8 +67,7 @@ public class TodoListReviewService {
      * 리뷰 수정
      */
     @Transactional
-    public TodoListReviewDto.Response updateReview(Long reviewId, Long userId,
-            TodoListReviewDto.UpdateRequest request) {
+    public TodoListReviewDto.Response updateReview(Long reviewId, Long userId, TodoListReviewDto.UpdateRequest request) {
         TodoListReview review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
 
@@ -144,6 +142,7 @@ public class TodoListReviewService {
 
         todoList.updateRating(
                 avgRating != null ? avgRating : 0.0,
-                (int) reviewCount);
+                (int) reviewCount
+        );
     }
 }

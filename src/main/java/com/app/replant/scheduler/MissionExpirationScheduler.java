@@ -1,7 +1,7 @@
 package com.app.replant.scheduler;
 
-import com.app.replant.domain.missionset.entity.MissionSet;
-import com.app.replant.domain.missionset.repository.MissionSetRepository;
+import com.app.replant.domain.missionset.entity.TodoList;
+import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ import java.util.List;
 public class MissionExpirationScheduler {
 
     private final UserMissionRepository userMissionRepository;
-    private final MissionSetRepository missionSetRepository;
+    private final TodoListRepository todoListRepository;
 
     /**
      * 매시간 정각에 실행
@@ -54,11 +54,11 @@ public class MissionExpirationScheduler {
             }
 
             // 2. 활성 투두리스트 중 모든 미션이 완료된 경우 투두리스트도 완료 처리
-            List<MissionSet> activeTodoLists = missionSetRepository.findAllActiveTodoLists();
+            List<TodoList> activeTodoLists = todoListRepository.findAllActiveTodoLists();
             log.info("활성 투두리스트 수: {}", activeTodoLists.size());
 
             int completedTodoLists = 0;
-            for (MissionSet todoList : activeTodoLists) {
+            for (TodoList todoList : activeTodoLists) {
                 try {
                     // 완료된 미션 수가 총 미션 수와 같으면 자동 완료
                     Integer totalCount = todoList.getTotalCount();

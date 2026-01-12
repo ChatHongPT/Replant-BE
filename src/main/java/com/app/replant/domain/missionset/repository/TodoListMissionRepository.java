@@ -24,7 +24,7 @@ public interface TodoListMissionRepository extends JpaRepository<TodoListMission
     Optional<TodoListMission> findByTodoListAndMission(TodoList todoList, Mission mission);
 
     // 투두리스트의 최대 displayOrder 조회
-    @Query("SELECT COALESCE(MAX(msm.displayOrder), 0) FROM TodoListMission msm WHERE msm.todoList = :todoList")
+    @Query("SELECT COALESCE(MAX(tlm.displayOrder), 0) FROM TodoListMission tlm WHERE tlm.todoList = :todoList")
     Integer findMaxDisplayOrderByTodoList(@Param("todoList") TodoList todoList);
 
     // 투두리스트의 미션 수
