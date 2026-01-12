@@ -45,12 +45,12 @@ public class NotificationService {
     }
 
     /**
-     * 알림 삭제 (Soft Delete)
+     * 알림 삭제 (Hard Delete)
      */
     @Transactional
     public void deleteNotification(Long notificationId, Long userId) {
         Notification notification = findNotificationByIdAndUserId(notificationId, userId);
-        notification.softDelete();
+        notificationRepository.delete(notification);
     }
 
     private Notification findNotificationByIdAndUserId(Long notificationId, Long userId) {

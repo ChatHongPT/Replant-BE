@@ -44,8 +44,9 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V6 마이그레이션 스킵 (이미 적용됨)");
             }
 
-            // V7 마이그레이션 필요 여부 확인 (mission 테이블에 mission_source 컬럼 존재 여부)
-            boolean needV7 = !columnExists(stmt, "mission", "mission_source");
+            // V7 마이그레이션 필요 여부 확인 (mission 테이블에 mission_source 또는 mission_type 컬럼 존재 여부)
+            // mission_type이 이미 있으면 V7/V21이 이미 완료된 것임
+            boolean needV7 = !columnExists(stmt, "mission", "mission_source") && !columnExists(stmt, "mission", "mission_type");
 
             if (needV7) {
                 log.info("V7 마이그레이션 실행 중...");
@@ -81,9 +82,14 @@ public class ManualMigrationRunner implements CommandLineRunner {
             log.info("V17 마이그레이션 완료");
 
             // V18 마이그레이션: mission.mission_source DEFAULT 값 제거 및 creator_id 기반 CUSTOM 설정
-            log.info("V18 마이그레이션 실행 중...");
-            executeV18Migration(conn);
-            log.info("V18 마이그레이션 완료");
+            // mission_source가 있어야만 실행 (이미 mission_type으로 변경되었으면 스킵)
+            if (columnExists(stmt, "mission", "mission_source")) {
+                log.info("V18 마이그레이션 실행 중...");
+                executeV18Migration(conn);
+                log.info("V18 마이그레이션 완료");
+            } else {
+                log.info("V18 마이그레이션 스킵 (mission_source 컬럼 없음 - 이미 mission_type으로 변경됨)");
+            }
 
             // V21 마이그레이션: mission_source를 mission_type으로 변경, GPS 컬럼 삭제, type 컬럼 삭제
             boolean needV21 = columnExists(stmt, "mission", "mission_source") &&
@@ -114,13 +120,22 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V22 마이그레이션 완료: comment.deleted_at 컬럼 추가됨");
             }
 
-            // V23: notification 테이블에 deleted_at 컬럼 추가
-            if (!columnExists(stmt, "notification", "deleted_at")) {
-                log.info("V23 마이그레이션 실행 중: notification.deleted_at 컬럼 추가...");
+            // V23: notification 테이블에 updated_at 컬럼 추가 (BaseEntity 상속)
+            if (!columnExists(stmt, "notification", "updated_at")) {
+                log.info("V23 마이그레이션 실행 중: notification.updated_at 컬럼 추가...");
                 try (Statement alterStmt = conn.createStatement()) {
-                    alterStmt.execute("ALTER TABLE `notification` ADD COLUMN `deleted_at` DATETIME NULL");
+                    alterStmt.execute("ALTER TABLE `notification` ADD COLUMN `updated_at` DATETIME NULL");
                 }
-                log.info("V23 마이그레이션 완료: notification.deleted_at 컬럼 추가됨");
+                log.info("V23 마이그레이션 완료: notification.updated_at 컬럼 추가됨");
+            }
+
+            // V24: diary 테이블에 deleted_at 컬럼 추가 (SoftDeletableEntity 상속)
+            if (!columnExists(stmt, "diary", "deleted_at")) {
+                log.info("V24 마이그레이션 실행 중: diary.deleted_at 컬럼 추가...");
+                try (Statement alterStmt = conn.createStatement()) {
+                    alterStmt.execute("ALTER TABLE `diary` ADD COLUMN `deleted_at` DATETIME NULL");
+                }
+                log.info("V24 마이그레이션 완료: diary.deleted_at 컬럼 추가됨");
             }
 
         } catch (Exception e) {
