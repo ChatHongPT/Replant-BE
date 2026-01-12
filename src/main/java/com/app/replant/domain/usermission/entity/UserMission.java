@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "user_mission", indexes = {
-    @Index(name = "idx_user_mission_type", columnList = "mission_type")
+        @Index(name = "idx_user_mission_type", columnList = "mission_type")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -53,7 +53,7 @@ public class UserMission {
 
     @Builder
     private UserMission(User user, Mission mission, MissionType missionType,
-                        LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status) {
+            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status) {
         this.user = user;
         this.mission = mission;
 
@@ -80,6 +80,13 @@ public class UserMission {
      */
     public void complete() {
         this.status = UserMissionStatus.COMPLETED;
+    }
+
+    /**
+     * 미션 실패 처리
+     */
+    public void fail() {
+        this.status = UserMissionStatus.FAILED;
     }
 
     /**

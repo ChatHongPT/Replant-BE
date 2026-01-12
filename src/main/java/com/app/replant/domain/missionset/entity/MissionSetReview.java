@@ -14,14 +14,12 @@ import java.time.LocalDateTime;
  * 사용자가 담은 미션세트에 대한 별점 및 리뷰
  */
 @Entity
-@Table(name = "mission_set_review",
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_mission_set_user", columnNames = {"mission_set_id", "user_id"})
-    },
-    indexes = {
-        @Index(name = "idx_mission_set_review_set", columnList = "mission_set_id"),
-        @Index(name = "idx_mission_set_review_user", columnList = "user_id")
-    })
+@Table(name = "todolist_review", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_todolist_user", columnNames = { "todolist_id", "user_id" })
+}, indexes = {
+        @Index(name = "idx_todolist_review_todolist", columnList = "todolist_id"),
+        @Index(name = "idx_todolist_review_user", columnList = "user_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MissionSetReview {
@@ -31,7 +29,7 @@ public class MissionSetReview {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "mission_set_id", nullable = false)
+    @JoinColumn(name = "todolist_id", nullable = false)
     private MissionSet missionSet;
 
     @ManyToOne(fetch = FetchType.LAZY)

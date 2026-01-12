@@ -116,116 +116,6 @@ public class SseController {
         return ResponseEntity.status(404).body("연결된 클라이언트가 없습니다. 현재 연결 수: " + sseService.getConnectedUserCount());
     }
 
-    /**
-     * 테스트용: GET으로 메시지 전송 (브라우저에서 쉽게 테스트)
-     */
-    @Operation(summary = "테스트 메시지 전송 (GET)", description = "GET 방식으로 SSE를 통해 테스트 메시지를 전송합니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "테스트 메시지 전송 성공")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보가 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SSE 연결이 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "메시지 전송 실패")
-    @GetMapping("/test")
-    public ResponseEntity<String> testMessage(
-            @Parameter(hidden = true) Authentication authentication) {
-        Long memberId = getMemberId(authentication);
-
-        if (memberId == null) {
-            return ResponseEntity.status(401).body("인증 정보가 없습니다");
-        }
-
-        String testMessage = "테스트 알림입니다! 현재 시간: " + java.time.LocalDateTime.now();
-        boolean sent = sseService.sendToUser(memberId, "message", testMessage);
-
-        if (sent) {
-            log.info("SSE 테스트 메시지 전송 성공 - memberId: {}", memberId);
-            return ResponseEntity.ok("테스트 메시지 전송 성공: " + testMessage);
-        }
-
-        return ResponseEntity.status(404).body("연결된 클라이언트가 없습니다. 먼저 /sse/connect에 연결하세요.");
-    }
-
-    /**
-     * 테스트용: MISSION 알림 전송
-     */
-    @Operation(summary = "MISSION 타입 알림 전송", description = "미션 알림을 전송합니다. 프론트엔드에서 'N개의 미션이 배정되었습니다.' 메시지가 표시되고, /missions로 이동합니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "MISSION 알림 전송 성공")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보가 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요")
-    @GetMapping("/test/mission")
-    public ResponseEntity<String> testMissionNotification(
-            @Parameter(hidden = true) Authentication authentication) {
-        Long memberId = getMemberId(authentication);
-
-        if (memberId == null) {
-            return ResponseEntity.status(401).body("인증 정보가 없습니다");
-        }
-
-        if (!sseService.isConnected(memberId)) {
-            return ResponseEntity.status(404).body("SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요.");
-        }
-
-        // 테스트용: 일간 미션 3개 배정 알림
-        sseService.sendMissionNotification(memberId, "일간", 3);
-        return ResponseEntity.ok("MISSION 알림 전송 완료 (일간 미션 3개)");
-    }
-
-    /**
-     * 테스트용: DIARY 알림 전송
-     */
-    @Operation(summary = "DIARY 타입 알림 전송", description = "일기 알림을 전송합니다. 프론트엔드에서 일기 작성 알림이 표시되고, /calendar/diary/emotion?date=오늘날짜로 이동하여 바로 일기를 작성할 수 있습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "DIARY 알림 전송 성공")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보가 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요")
-    @GetMapping("/test/diary")
-    public ResponseEntity<String> testDiaryNotification(
-            @Parameter(hidden = true) Authentication authentication) {
-        Long memberId = getMemberId(authentication);
-
-        if (memberId == null) {
-            return ResponseEntity.status(401).body("인증 정보가 없습니다");
-        }
-
-        if (!sseService.isConnected(memberId)) {
-            return ResponseEntity.status(404).body("SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요.");
-        }
-
-        sseService.sendDiaryNotification(memberId);
-        return ResponseEntity.ok("DIARY 알림 전송 완료");
-    }
-
-    /**
-     * 테스트용: 커스텀 타입 알림 전송
-     */
-    @Operation(summary = "커스텀 타입 알림 전송", description = "지정한 타입으로 알림을 전송합니다. 타입: REPORT, diary, goal, achievement 등")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "알림 전송 성공")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보가 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SSE 연결이 없습니다")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "알림 전송 실패")
-    @PostMapping("/test/custom")
-    public ResponseEntity<String> testCustomNotification(
-            @Parameter(hidden = true) Authentication authentication,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "알림 데이터", required = true) @RequestBody Map<String, Object> notificationData) {
-        Long memberId = getMemberId(authentication);
-
-        if (memberId == null) {
-            return ResponseEntity.status(401).body("인증 정보가 없습니다");
-        }
-
-        if (!sseService.isConnected(memberId)) {
-            return ResponseEntity.status(404).body("SSE 연결이 없습니다. 먼저 /sse/connect에 연결하세요.");
-        }
-
-        try {
-            String eventName = (String) notificationData.getOrDefault("type", "message");
-            String jsonData = objectMapper.writeValueAsString(notificationData);
-            sseService.sendToUser(memberId, eventName, jsonData);
-            return ResponseEntity.ok("알림 전송 완료 (타입: " + eventName + ")");
-        } catch (Exception e) {
-            log.error("커스텀 알림 전송 실패 - memberId: {}", memberId, e);
-            return ResponseEntity.status(500).body("알림 전송 실패: " + e.getMessage());
-        }
-    }
-
     public int getConnectedUserCount() {
         return sseService.getConnectedUserCount();
     }
@@ -241,7 +131,6 @@ public class SseController {
             if (principal instanceof UserDetail) {
                 return ((UserDetail) principal).getId();
             }
-
 
             log.warn("지원하지 않는 Principal 타입: {}", principal.getClass().getName());
             return null;

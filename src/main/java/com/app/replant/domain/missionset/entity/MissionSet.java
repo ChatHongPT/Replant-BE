@@ -20,11 +20,11 @@ import java.util.List;
  * 여러 미션을 묶어서 관리할 수 있는 세트
  */
 @Entity
-@Table(name = "mission_set", indexes = {
-    @Index(name = "idx_mission_set_creator", columnList = "creator_id"),
-    @Index(name = "idx_mission_set_is_public", columnList = "is_public"),
-    @Index(name = "idx_mission_set_added_count", columnList = "added_count"),
-    @Index(name = "idx_mission_set_type", columnList = "set_type")
+@Table(name = "todolist", indexes = {
+        @Index(name = "idx_todolist_creator", columnList = "creator_id"),
+        @Index(name = "idx_todolist_is_public", columnList = "is_public"),
+        @Index(name = "idx_todolist_added_count", columnList = "added_count"),
+        @Index(name = "idx_todolist_type", columnList = "set_type")
 })
 @SQLRestriction("deleted_at IS NULL")
 @Getter
@@ -229,6 +229,16 @@ public class MissionSet extends SoftDeletableEntity {
     public void archiveTodoList() {
         if (this.setType == MissionSetType.TODOLIST) {
             this.todolistStatus = TodoListStatus.ARCHIVED;
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    /**
+     * 투두리스트 완료 처리 (모든 미션 완료 시)
+     */
+    public void completeTodoList() {
+        if (this.setType == MissionSetType.TODOLIST) {
+            this.todolistStatus = TodoListStatus.COMPLETED;
             this.updatedAt = LocalDateTime.now();
         }
     }

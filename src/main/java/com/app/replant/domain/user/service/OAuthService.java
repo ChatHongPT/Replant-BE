@@ -36,6 +36,7 @@ public class OAuthService {
     private final UserOauthRepository userOauthRepository;
     private final ReantRepository reantRepository;
     private final TokenProvider tokenProvider;
+    private final com.app.replant.domain.notification.service.NotificationService notificationService;
 
     private Map<OAuthProvider, OAuthClient> oAuthClientMap;
 
@@ -104,6 +105,19 @@ public class OAuthService {
             userOauthRepository.save(userOauth);
 
             isNewUser = true;
+
+            // 신규 유저에게 투두리스트 생성 알림 발송
+            try {
+                notificationService.createAndPushNotification(
+                        user,
+                        com.app.replant.domain.notification.enums.NotificationType.SYSTEM,
+                        "환영합니다!",
+                        "투두리스트를 생성해주세요!");
+                log.info("신규 유저 투두리스트 생성 알림 발송 완료: userId={}", user.getId());
+            } catch (Exception e) {
+                log.error("신규 유저 알림 발송 실패: userId={}", user.getId(), e);
+                // 알림 실패는 로그인 흐름을 방해하지 않음
+            }
         }
 
         // 3. JWT 토큰 생성

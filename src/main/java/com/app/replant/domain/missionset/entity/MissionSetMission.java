@@ -15,11 +15,11 @@ import java.time.LocalDateTime;
  * 미션세트에 포함된 미션들을 관리
  */
 @Entity
-@Table(name = "mission_set_mission", indexes = {
-    @Index(name = "idx_msm_mission_set", columnList = "mission_set_id"),
-    @Index(name = "idx_msm_mission", columnList = "mission_id")
+@Table(name = "todolist_mission", indexes = {
+        @Index(name = "idx_todolist_mission_todolist", columnList = "todolist_id"),
+        @Index(name = "idx_todolist_mission_mission", columnList = "mission_id")
 }, uniqueConstraints = {
-    @UniqueConstraint(name = "uk_mission_set_mission", columnNames = {"mission_set_id", "mission_id"})
+        @UniqueConstraint(name = "uk_todolist_mission", columnNames = { "todolist_id", "mission_id" })
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,7 +30,7 @@ public class MissionSetMission {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "mission_set_id", nullable = false)
+    @JoinColumn(name = "todolist_id", nullable = false)
     private MissionSet missionSet;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -71,8 +71,8 @@ public class MissionSetMission {
     // 투두리스트 미션용 빌더
     @Builder(builderMethodName = "todoMissionBuilder")
     private static MissionSetMission createTodoMission(
-            MissionSet missionSet, 
-            Mission mission, 
+            MissionSet missionSet,
+            Mission mission,
             Integer displayOrder,
             MissionSource missionSource) {
         MissionSetMission msm = new MissionSetMission();

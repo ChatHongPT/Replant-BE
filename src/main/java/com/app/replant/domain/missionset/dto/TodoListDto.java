@@ -21,8 +21,32 @@ public class TodoListDto {
     public static class CreateRequest {
         private String title;
         private String description;
-        private List<Long> randomMissionIds;  // 랜덤 배정된 공식 미션 3개
-        private List<Long> customMissionIds;  // 사용자 선택 커스텀 미션 2개
+        private List<Long> randomMissionIds; // 랜덤 배정된 공식 미션 3개
+        private List<Long> customMissionIds; // 사용자 선택 커스텀 미션 2개
+    }
+
+    @Getter
+    public static class UpdateRequest {
+        private String title;
+        private String description;
+        private Boolean isPublic;
+    }
+
+    @Getter
+    public static class AddMissionRequest {
+        private Long missionId;
+        private Integer displayOrder;
+    }
+
+    @Getter
+    public static class ReorderMissionsRequest {
+        private List<MissionOrderItem> missions;
+
+        @Getter
+        public static class MissionOrderItem {
+            private Long missionId;
+            private Integer displayOrder;
+        }
     }
 
     // ============ Response DTOs ============
@@ -30,7 +54,7 @@ public class TodoListDto {
     @Getter
     @Builder
     public static class InitResponse {
-        private List<MissionSimpleResponse> randomMissions;  // 랜덤 배정된 공식 미션 3개
+        private List<MissionSimpleResponse> randomMissions; // 랜덤 배정된 공식 미션 3개
     }
 
     @Getter
@@ -163,9 +187,9 @@ public class TodoListDto {
         private Long creatorId;
         private String creatorNickname;
         private Integer missionCount;
-        private Integer addedCount;      // 담은 횟수
-        private Double averageRating;    // 평균 별점
-        private Integer reviewCount;     // 리뷰 수
+        private Integer addedCount; // 담은 횟수
+        private Double averageRating; // 평균 별점
+        private Integer reviewCount; // 리뷰 수
         private LocalDateTime createdAt;
 
         public static PublicResponse from(MissionSet missionSet) {
@@ -251,7 +275,13 @@ public class TodoListDto {
 
     @Getter
     public static class ReviewRequest {
-        private Integer rating;  // 1-5
+        private Integer rating; // 1-5
+        private String content;
+    }
+
+    @Getter
+    public static class UpdateReviewRequest {
+        private Integer rating;
         private String content;
     }
 
