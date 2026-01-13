@@ -52,7 +52,7 @@ public class SecondaryDataSourceConfig {
 
         return builder
                 .dataSource(dataSource)
-                .packages("com.app.replant.domain", "com.app.replant.entity") // 모든 entity 패키지
+                .packages("com.app.replant") // 루트 패키지 스캔 (domain, entity, common 모두 포함)
                 .persistenceUnit("secondary")
                 .properties(jpaProperties)
                 .build();
