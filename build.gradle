@@ -87,7 +87,10 @@ dependencies {
 
     // Rate Limiting (Bucket4j)
     implementation 'com.bucket4j:bucket4j-core:8.7.0'
-    
+
+    // Firebase Admin SDK (FCM)
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
+
     // Spring AI - OpenAI (필요시 주석 해제)
     // implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M4'
     

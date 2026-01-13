@@ -45,3 +45,7 @@ application-prod.yml
 # QueryDSL generated
 **/Q*.java
 
+# Firebase
+firebase-service-account.json
+**/firebase-service-account*.json
+

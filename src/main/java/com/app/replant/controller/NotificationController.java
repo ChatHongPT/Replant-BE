@@ -1,10 +1,12 @@
 package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
+import com.app.replant.domain.notification.dto.FcmTokenRequest;
 import com.app.replant.domain.notification.dto.NotificationResponse;
 import com.app.replant.domain.notification.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,6 +82,19 @@ public class NotificationController {
 
         Map<String, String> result = new HashMap<>();
         result.put("message", "알림이 삭제되었습니다.");
+
+        return ApiResponse.success(result);
+    }
+
+    @Operation(summary = "FCM 토큰 등록/업데이트", description = "사용자의 FCM 토큰을 등록하거나 업데이트합니다.")
+    @PostMapping("/fcm/token")
+    public ApiResponse<Map<String, String>> registerFcmToken(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody FcmTokenRequest request) {
+        notificationService.registerFcmToken(userId, request.getFcmToken());
+
+        Map<String, String> result = new HashMap<>();
+        result.put("message", "FCM 토큰이 등록되었습니다.");
 
         return ApiResponse.success(result);
     }

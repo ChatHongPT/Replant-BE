@@ -4,9 +4,12 @@ import com.app.replant.domain.notification.dto.NotificationResponse;
 import com.app.replant.domain.notification.entity.Notification;
 import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.repository.NotificationRepository;
+import com.app.replant.domain.notification.repository.RedisFcmTokenRepository;
 import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
+import com.app.replant.service.fcm.FcmService;
 import com.app.replant.service.sse.SseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final RedisFcmTokenRepository redisFcmTokenRepository;
+    private final UserRepository userRepository;
     private final SseService sseService;
+    private final FcmService fcmService;
 
     public Page<NotificationResponse> getNotifications(Long userId, Boolean isRead, Pageable pageable) {
         return notificationRepository.findByUserIdAndIsRead(userId, isRead, pageable)
@@ -59,7 +65,7 @@ public class NotificationService {
     }
 
     /**
-     * 알림 생성 + DB 저장 + SSE 실시간 전송
+     * 알림 생성 + DB 저장 + SSE/FCM 전송
      * @param user 수신자
      * @param type 알림 타입
      * @param title 알림 제목
@@ -82,12 +88,23 @@ public class NotificationService {
                 .build();
 
         Notification saved = notificationRepository.save(notification);
-        log.info("알림 저장 완료 - userId: {}, type: {}, title: {}", user.getId(), type, title);
+        log.info("[알림] 저장 완료 - userId: {}, type: {}, title: {}", user.getId(), type, title);
 
-        // 2. SSE 연결되어 있으면 실시간 전송
-        boolean sent = sseService.sendNotification(user.getId(), saved);
-        if (!sent) {
-            log.debug("SSE 미연결 상태 - userId: {}, 알림은 DB에 저장됨", user.getId());
+        // 2. 먼저 SSE로 실시간 전송 시도 (사용자가 온라인인 경우)
+        boolean sentViaSse = sseService.sendNotification(user.getId(), saved);
+
+        // 3. SSE 전송 실패 시 FCM으로 푸시 알림 전송 (사용자가 오프라인인 경우)
+        if (!sentViaSse) {
+            log.info("[알림] SSE 미연결 상태, FCM 푸시 알림 전송 시도 - userId: {}", user.getId());
+            boolean sentViaFcm = fcmService.sendNotification(user.getId(), saved);
+
+            if (sentViaFcm) {
+                log.info("[알림] FCM 푸시 알림 전송 성공 - userId: {}", user.getId());
+            } else {
+                log.warn("[알림] SSE/FCM 모두 실패. DB에만 저장됨 - userId: {}", user.getId());
+            }
+        } else {
+            log.info("[알림] SSE 실시간 전송 성공 - userId: {}", user.getId());
         }
 
         return saved;
@@ -125,5 +142,22 @@ public class NotificationService {
     @Transactional
     public Notification createAndPushNotification(User user, NotificationType type, String title, String content) {
         return createAndPushNotification(user, type.name(), title, content, null, null);
+    }
+
+    // ============ FCM 토큰 관리 (Redis) ============
+
+    /**
+     * FCM 토큰 등록/업데이트 (Redis 저장)
+     * @param userId 사용자 ID
+     * @param token FCM 토큰
+     */
+    public void registerFcmToken(Long userId, String token) {
+        // 사용자 존재 여부 확인
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // Redis에 FCM 토큰 저장 (기존 토큰이 있으면 자동으로 덮어씌워짐)
+        redisFcmTokenRepository.save(userId, token);
+        log.info("[FCM] 토큰 Redis 저장 완료 - userId: {}", userId);
     }
 }
