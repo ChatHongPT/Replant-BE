@@ -191,7 +191,7 @@ public class TodoListDto {
                     .missionType(mission.getMissionType().name())
                     .verificationType(mission.getVerificationType().name())
                     .category(mission.getCategory().name())
-                    .expReward(mission.getExpReward())
+                    .expReward(mission.isCustomMission() ? 0 : mission.getExpReward())
                     .build();
         }
     }
