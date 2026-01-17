@@ -31,6 +31,9 @@ public enum ErrorCode {
 
     // 회원 관리 - 로그인
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "ACCOUNT-010", "아이디가 존재하지 않습니다."),
+    USER_ALREADY_DELETED(HttpStatus.BAD_REQUEST, "ACCOUNT-021", "이미 탈퇴한 회원입니다."),
+    USER_RESTORE_EXPIRED(HttpStatus.BAD_REQUEST, "ACCOUNT-022", "계정 복구 기간이 지났습니다. (탈퇴 후 30일 이내에만 복구 가능)"),
+    USER_NOT_DELETED(HttpStatus.BAD_REQUEST, "ACCOUNT-023", "탈퇴한 계정이 아닙니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "ACCOUNT-011", "비밀번호가 틀립니다."),
 
     // 회원 관리 - 아이디/비밀번호 찾기

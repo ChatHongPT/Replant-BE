@@ -248,21 +248,42 @@ public class FcmServiceImpl implements FcmService {
 
             String token = userOpt.get().getFcmToken();
 
-            // 2. FCM 메시지 생성
-            Message message = Message.builder()
+            // 2. 알림 데이터 생성
+            Map<String, String> notificationData = buildNotificationData(notification);
+            
+            // 3. FCM 메시지 생성
+            Message.Builder messageBuilder = Message.builder()
                     .setToken(token)
                     .setNotification(com.google.firebase.messaging.Notification.builder()
                             .setTitle(notification.getTitle())
                             .setBody(notification.getContent())
                             .build())
-                    .putAllData(buildNotificationData(notification))
-                    .setAndroidConfig(AndroidConfig.builder()
-                            .setNotification(AndroidNotification.builder()
-                                    .setColor("#023c69") // 앱 primary 색상
-                                    .setSound("default")
-                                    .build())
-                            .build())
-                    .build();
+                    .putAllData(notificationData);
+            
+            // 기상 미션의 경우 deep link 추가
+            if ("SPONTANEOUS_WAKE_UP".equals(notification.getType()) && 
+                notificationData.containsKey("userMissionId")) {
+                String userMissionId = notificationData.get("userMissionId");
+                // Android용 click_action 설정 (React Native에서 사용)
+                messageBuilder.setAndroidConfig(AndroidConfig.builder()
+                        .setNotification(AndroidNotification.builder()
+                                .setColor("#023c69") // 앱 primary 색상
+                                .setSound("default")
+                                .setClickAction("FLUTTER_NOTIFICATION_CLICK") // React Native에서 처리
+                                .build())
+                        .build());
+                
+                log.info("[FCM] 기상 미션 알림 - userMissionId 포함: {}", userMissionId);
+            } else {
+                messageBuilder.setAndroidConfig(AndroidConfig.builder()
+                        .setNotification(AndroidNotification.builder()
+                                .setColor("#023c69") // 앱 primary 색상
+                                .setSound("default")
+                                .build())
+                        .build());
+            }
+            
+            Message message = messageBuilder.build();
 
             // 3. FCM 전송
             String response = FirebaseMessaging.getInstance().send(message);
@@ -315,10 +336,15 @@ public class FcmServiceImpl implements FcmService {
             
             // USER_MISSION 타입인 경우 userMissionId 필드도 추가 (프론트엔드 호환성)
             if ("USER_MISSION".equals(notification.getReferenceType())) {
-                data.put("userMissionId", String.valueOf(notification.getReferenceId()));
+                String userMissionId = String.valueOf(notification.getReferenceId());
+                data.put("userMissionId", userMissionId);
+                log.info("[FCM] 알림 데이터에 userMissionId 추가 - notificationId={}, type={}, userMissionId={}", 
+                        notification.getId(), notification.getType(), userMissionId);
             }
         }
 
+        log.info("[FCM] 알림 데이터 구성 완료 - notificationId={}, type={}, data={}", 
+                notification.getId(), notification.getType(), data);
         return data;
     }
 

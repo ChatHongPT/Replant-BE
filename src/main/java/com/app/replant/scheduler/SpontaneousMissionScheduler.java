@@ -19,7 +19,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -52,11 +53,20 @@ public class SpontaneousMissionScheduler {
     private final FcmService fcmService;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    
+    // 돌발 미션 캐시 (성능 최적화)
+    private volatile Mission cachedWakeUpMission = null;
+    private volatile Mission cachedMealMission = null;
+    private volatile Mission cachedDiaryMission = null;
+    private volatile LocalDateTime lastCacheUpdate = null;
+    private static final long CACHE_TTL_MINUTES = 60; // 캐시 유효 시간: 1시간
 
     /**
      * 매 1분마다 실행 (더 정확한 시간 매칭을 위해)
      * cron: "초 분 시 일 월 요일"
      * zone = "Asia/Seoul"이므로 KST 기준으로 실행
+     * 
+     * TaskScheduler 설정으로 효율적인 리소스 관리 및 동시 작업 처리
      */
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
     @Transactional
@@ -92,107 +102,90 @@ public class SpontaneousMissionScheduler {
             
             log.info("현재 시간: {}, 타겟 시간: {}", currentTime, targetTime);
             
-            // 돌발 미션 설정을 완료한 모든 사용자 조회
-            log.info("활성 사용자 조회 시작...");
-            List<User> users;
+            AtomicInteger assignedCount = new AtomicInteger(0);
+            AtomicInteger skippedCount = new AtomicInteger(0);
+            
             try {
-                long startTime = System.currentTimeMillis();
-                users = userRepository.findAllActiveUsers();
-                long elapsed = System.currentTimeMillis() - startTime;
-                log.info("활성 사용자 조회 완료. 활성 사용자 수: {}, 소요 시간: {}ms", users.size(), elapsed);
+                // 1. 기상 시간에 해당하는 사용자만 조회
+                List<User> wakeUpUsers = userRepository.findUsersByWakeTime(targetTime);
+                log.info("기상 시간({})에 해당하는 사용자 수: {}", targetTime, wakeUpUsers.size());
+                
+                // 각 사용자별 작업을 병렬로 처리 (TaskScheduler 스레드 풀 활용)
+                wakeUpUsers.parallelStream().forEach(user -> {
+                    try {
+                        String roundedWakeTime = roundTimeTo5Minutes(user.getWakeTime());
+                        if (roundedWakeTime != null && targetTime.equals(roundedWakeTime)) {
+                            log.info("기상 시간 매칭! 사용자 {} 기상 미션 할당 시작 (wakeTime: {})", 
+                                    user.getId(), user.getWakeTime());
+                            assignWakeUpMission(user, now);
+                            assignedCount.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        log.error("사용자 {} 기상 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
+                        skippedCount.incrementAndGet();
+                    }
+                });
+                
+                // 2. 식사 시간에 해당하는 사용자 조회 (아침/점심/저녁)
+                List<User> mealUsers = userRepository.findUsersByMealTime(targetTime);
+                log.info("식사 시간({})에 해당하는 사용자 수: {}", targetTime, mealUsers.size());
+                
+                // 각 사용자별 작업을 병렬로 처리
+                mealUsers.parallelStream().forEach(user -> {
+                    try {
+                        String roundedBreakfastTime = roundTimeTo5Minutes(user.getBreakfastTime());
+                        String roundedLunchTime = roundTimeTo5Minutes(user.getLunchTime());
+                        String roundedDinnerTime = roundTimeTo5Minutes(user.getDinnerTime());
+                        
+                        if (roundedBreakfastTime != null && targetTime.equals(roundedBreakfastTime)) {
+                            log.info("아침 식사 시간 매칭! 사용자 {} 아침 식사 미션 할당 (breakfastTime: {})", 
+                                    user.getId(), user.getBreakfastTime());
+                            assignMealMission(user, now, "아침");
+                            assignedCount.incrementAndGet();
+                        } else if (roundedLunchTime != null && targetTime.equals(roundedLunchTime)) {
+                            log.info("점심 식사 시간 매칭! 사용자 {} 점심 식사 미션 할당 (lunchTime: {})", 
+                                    user.getId(), user.getLunchTime());
+                            assignMealMission(user, now, "점심");
+                            assignedCount.incrementAndGet();
+                        } else if (roundedDinnerTime != null && targetTime.equals(roundedDinnerTime)) {
+                            log.info("저녁 식사 시간 매칭! 사용자 {} 저녁 식사 미션 할당 (dinnerTime: {})", 
+                                    user.getId(), user.getDinnerTime());
+                            assignMealMission(user, now, "저녁");
+                            assignedCount.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        log.error("사용자 {} 식사 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
+                        skippedCount.incrementAndGet();
+                    }
+                });
+                
+                // 3. 취침 시간에 해당하는 사용자만 조회
+                List<User> sleepUsers = userRepository.findUsersBySleepTime(targetTime);
+                log.info("취침 시간({})에 해당하는 사용자 수: {}", targetTime, sleepUsers.size());
+                
+                // 각 사용자별 작업을 병렬로 처리
+                sleepUsers.parallelStream().forEach(user -> {
+                    try {
+                        String roundedSleepTime = roundTimeTo5Minutes(user.getSleepTime());
+                        if (roundedSleepTime != null && targetTime.equals(roundedSleepTime)) {
+                            log.info("취침 시간 매칭! 사용자 {} 감성일기 미션 할당 (sleepTime: {})", 
+                                    user.getId(), user.getSleepTime());
+                            assignEmotionalDiaryMission(user, now);
+                            assignedCount.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        log.error("사용자 {} 감성일기 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
+                        skippedCount.incrementAndGet();
+                    }
+                });
+                
             } catch (Exception e) {
-                log.error("활성 사용자 조회 실패", e);
+                log.error("사용자 조회 실패", e);
                 e.printStackTrace();
                 return;
             }
             
-            if (users.isEmpty()) {
-                log.warn("활성 사용자가 없습니다. 스케줄러 종료.");
-                return;
-            }
-            
-            log.info("활성 사용자 {}명 중 돌발 미션 설정 완료된 사용자 확인 시작...", users.size());
-            
-            // 설정 완료되지 않은 사용자 수 카운트
-            int notSetupCount = 0;
-            for (User user : users) {
-                if (!user.isSpontaneousMissionSetupCompleted()) {
-                    notSetupCount++;
-                }
-            }
-            log.info("설정 완료된 사용자: {}, 설정 미완료 사용자: {}", users.size() - notSetupCount, notSetupCount);
-            
-            int assignedCount = 0;
-            int skippedCount = 0;
-            int setupCompletedCount = 0;
-            
-            for (User user : users) {
-                // 돌발 미션 설정을 완료하지 않은 사용자는 스킵
-                if (!user.isSpontaneousMissionSetupCompleted()) {
-                    continue;
-                }
-                
-                setupCompletedCount++;
-                log.info("돌발 미션 설정 완료된 사용자 확인: userId={}, wakeTime={}, breakfastTime={}, lunchTime={}, dinnerTime={}, sleepTime={}", 
-                        user.getId(), user.getWakeTime(), user.getBreakfastTime(), user.getLunchTime(), user.getDinnerTime(), user.getSleepTime());
-                
-                try {
-                    // 기상 시간 체크
-                    String roundedWakeTime = roundTimeTo5Minutes(user.getWakeTime());
-                    log.info("사용자 {} 기상 시간 체크: {} -> 반올림: {}, 타겟: {}, 매칭: {}", 
-                            user.getId(), user.getWakeTime(), roundedWakeTime, targetTime, 
-                            (roundedWakeTime != null && targetTime.equals(roundedWakeTime)));
-                    if (roundedWakeTime != null && targetTime.equals(roundedWakeTime)) {
-                        log.info("기상 시간 매칭! 사용자 {} 기상 미션 할당 시작", user.getId());
-                        assignWakeUpMission(user, now);
-                        assignedCount++;
-                        continue;
-                    }
-                    
-                    // 아침 식사 시간 체크
-                    if (user.getBreakfastTime() != null) {
-                        String roundedBreakfastTime = roundTimeTo5Minutes(user.getBreakfastTime());
-                        if (targetTime.equals(roundedBreakfastTime)) {
-                            assignMealMission(user, now, "아침");
-                            assignedCount++;
-                            continue;
-                        }
-                    }
-                    
-                    // 점심 식사 시간 체크
-                    if (user.getLunchTime() != null) {
-                        String roundedLunchTime = roundTimeTo5Minutes(user.getLunchTime());
-                        if (targetTime.equals(roundedLunchTime)) {
-                            assignMealMission(user, now, "점심");
-                            assignedCount++;
-                            continue;
-                        }
-                    }
-                    
-                    // 저녁 식사 시간 체크
-                    if (user.getDinnerTime() != null) {
-                        String roundedDinnerTime = roundTimeTo5Minutes(user.getDinnerTime());
-                        if (targetTime.equals(roundedDinnerTime)) {
-                            assignMealMission(user, now, "저녁");
-                            assignedCount++;
-                            continue;
-                        }
-                    }
-                    
-                    // 취침 시간 체크
-                    String roundedSleepTime = roundTimeTo5Minutes(user.getSleepTime());
-                    if (roundedSleepTime != null && targetTime.equals(roundedSleepTime)) {
-                        assignEmotionalDiaryMission(user, now);
-                        assignedCount++;
-                    }
-                    
-                } catch (Exception e) {
-                    log.error("사용자 {}에게 돌발 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
-                    skippedCount++;
-                }
-            }
-            
-            log.info("=== 돌발 미션 할당 스케줄러 완료 === 설정완료 사용자: {}, 할당: {}, 스킵: {}", setupCompletedCount, assignedCount, skippedCount);
+            log.info("=== 돌발 미션 할당 스케줄러 완료 === 할당: {}, 스킵: {}", assignedCount.get(), skippedCount.get());
             
         } catch (Exception e) {
             log.error("돌발 미션 할당 스케줄러 실행 중 오류 발생", e);

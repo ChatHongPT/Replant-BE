@@ -34,6 +34,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -86,6 +87,61 @@ public class UserMissionService {
                 .map(UserMission::getId)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 현재 사용자의 기상 미션 상태 조회
+     * @param userId 사용자 ID
+     * @return WakeUpMissionStatusResponse (미션이 없으면 null)
+     */
+    @Transactional(readOnly = true)
+    public WakeUpMissionStatusResponse getCurrentWakeUpMissionStatus(Long userId) {
+        Page<UserMission> missionsPage = userMissionRepository.findByUserIdWithFilters(
+                userId, 
+                org.springframework.data.domain.PageRequest.of(0, 10)
+        );
+        
+        Optional<UserMission> wakeUpMission = missionsPage.getContent().stream()
+                .filter(UserMission::isSpontaneousMission)
+                .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
+                .filter(um -> {
+                    Mission mission = um.getMission();
+                    if (mission == null) return false;
+                    String title = mission.getTitle();
+                    return title != null && (title.contains("기상") || title.contains("일어나"));
+                })
+                .findFirst();
+        
+        if (wakeUpMission.isEmpty()) {
+            return null;
+        }
+        
+        UserMission userMission = wakeUpMission.get();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime assignedAt = userMission.getAssignedAt();
+        Duration elapsed = Duration.between(assignedAt, now);
+        long elapsedSeconds = elapsed.toSeconds();
+        long remainingSeconds = Math.max(0, 600 - elapsedSeconds); // 10분 = 600초
+        
+        boolean canVerify = elapsedSeconds < 600; // 10분 미만이면 인증 가능
+        String message;
+        
+        if (!canVerify) {
+            message = "인증 시간(10분)이 지났습니다.";
+        } else if (remainingSeconds > 0) {
+            long remainingMinutes = remainingSeconds / 60;
+            message = String.format("인증 가능합니다. 남은 시간: %d분", remainingMinutes);
+        } else {
+            message = "인증 가능합니다.";
+        }
+        
+        return WakeUpMissionStatusResponse.from(
+                userMission.getId(),
+                assignedAt,
+                remainingSeconds,
+                canVerify,
+                message
+        );
     }
 
     @Transactional

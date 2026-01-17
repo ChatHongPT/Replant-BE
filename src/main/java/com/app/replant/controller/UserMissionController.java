@@ -143,6 +143,19 @@ public class UserMissionController {
                 return ApiResponse.success(response);
         }
 
+        @Operation(summary = "기상 미션 상태 조회", description = "현재 사용자의 활성화된 기상 미션 상태를 조회합니다.")
+        @GetMapping("/wakeup/current")
+        public ApiResponse<WakeUpMissionStatusResponse> getCurrentWakeUpMission(
+                        @AuthenticationPrincipal Long userId) {
+                WakeUpMissionStatusResponse status = userMissionService.getCurrentWakeUpMissionStatus(userId);
+                if (status == null) {
+                        throw new com.app.replant.exception.CustomException(
+                                        com.app.replant.exception.ErrorCode.USER_MISSION_NOT_FOUND,
+                                        "현재 활성화된 기상 미션이 없습니다.");
+                }
+                return ApiResponse.success(status);
+        }
+
         @Operation(summary = "기상 미션 인증 (간편)", description = "기상 미션을 간편하게 인증합니다. userMissionId를 쿼리 파라미터로 받습니다. userMissionId가 없으면 자동으로 찾습니다. GET/POST 모두 지원 (POST 권장).")
         @RequestMapping(value = "/wakeup/verify-time", method = {RequestMethod.GET, RequestMethod.POST})
         public ApiResponse<VerifyMissionResponse> verifyWakeUpMissionWithQuery(
