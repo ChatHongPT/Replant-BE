@@ -215,6 +215,50 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
                 .fetch();
     }
 
+    @Override
+    public long countDistinctUsersByMissionId(Long missionId) {
+        Long count = queryFactory
+                .select(userMission.user.id.countDistinct())
+                .from(userMission)
+                .where(userMission.mission.id.eq(missionId)
+                        .and(userMission.mission.id.isNotNull()))
+                .fetchOne();
+
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public java.util.Map<Long, Long> countDistinctUsersByMissionIds(List<Long> missionIds) {
+        if (missionIds == null || missionIds.isEmpty()) {
+            return new java.util.HashMap<>();
+        }
+
+        // QueryDSL의 Tuple을 사용하여 미션별 참여자 수 조회
+        List<com.querydsl.core.Tuple> results = queryFactory
+                .select(userMission.mission.id, userMission.user.id.countDistinct())
+                .from(userMission)
+                .where(userMission.mission.id.in(missionIds)
+                        .and(userMission.mission.id.isNotNull()))
+                .groupBy(userMission.mission.id)
+                .fetch();
+
+        java.util.Map<Long, Long> participantCountMap = new java.util.HashMap<>();
+        for (com.querydsl.core.Tuple tuple : results) {
+            Long missionId = tuple.get(userMission.mission.id);
+            Long count = tuple.get(userMission.user.id.countDistinct());
+            if (missionId != null && count != null) {
+                participantCountMap.put(missionId, count);
+            }
+        }
+
+        // 조회되지 않은 미션은 0으로 설정
+        for (Long missionId : missionIds) {
+            participantCountMap.putIfAbsent(missionId, 0L);
+        }
+
+        return participantCountMap;
+    }
+
     // ========================================
     // 헬퍼 메서드
     // ========================================

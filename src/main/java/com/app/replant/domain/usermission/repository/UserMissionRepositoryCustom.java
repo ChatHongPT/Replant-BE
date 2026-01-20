@@ -100,4 +100,18 @@ public interface UserMissionRepositoryCustom {
      * @return 해당 기간에 할당된 모든 미션 (ASSIGNED, PENDING, COMPLETED 등 상태 무관)
      */
     List<UserMission> findByUserIdAndAssignedDateRange(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate);
+
+    /**
+     * 특정 미션의 참여자 수 조회 (고유 사용자 수)
+     * @param missionId 미션 ID
+     * @return 해당 미션을 수행한 고유 사용자 수
+     */
+    long countDistinctUsersByMissionId(Long missionId);
+
+    /**
+     * 여러 미션의 참여자 수를 일괄 조회 (고유 사용자 수)
+     * @param missionIds 미션 ID 목록
+     * @return 미션 ID를 키로 하고 참여자 수를 값으로 하는 Map
+     */
+    java.util.Map<Long, Long> countDistinctUsersByMissionIds(List<Long> missionIds);
 }

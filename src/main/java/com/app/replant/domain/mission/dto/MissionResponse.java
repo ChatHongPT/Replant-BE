@@ -31,6 +31,9 @@ public class MissionResponse {
     // 미션 도감용: 사용자가 해당 미션을 완료했는지 여부 (인증 완료 = 잠금 해제)
     @lombok.Builder.Default
     private Boolean isCompleted = false;
+    
+    // 미션 참여자 수 (해당 미션을 수행한 고유 사용자 수)
+    private Long participantCount;
 
     // ============ 사용자 맞춤 필드들 ============
     // 고민 종류
@@ -63,6 +66,10 @@ public class MissionResponse {
     }
 
     public static MissionResponse from(Mission mission, boolean isAttempted, boolean isCompleted) {
+        return from(mission, isAttempted, isCompleted, null);
+    }
+
+    public static MissionResponse from(Mission mission, boolean isAttempted, boolean isCompleted, Long participantCount) {
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -76,6 +83,7 @@ public class MissionResponse {
                 .isActive(mission.getIsActive())
                 .isAttempted(isAttempted)
                 .isCompleted(isCompleted)
+                .participantCount(participantCount)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())
@@ -106,6 +114,10 @@ public class MissionResponse {
     }
 
     public static MissionResponse from(Mission mission, long reviewCount, boolean isAttempted, boolean isCompleted) {
+        return from(mission, reviewCount, isAttempted, isCompleted, null);
+    }
+
+    public static MissionResponse from(Mission mission, long reviewCount, boolean isAttempted, boolean isCompleted, Long participantCount) {
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -120,6 +132,7 @@ public class MissionResponse {
                 .reviewCount(reviewCount)
                 .isAttempted(isAttempted)
                 .isCompleted(isCompleted)
+                .participantCount(participantCount)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())

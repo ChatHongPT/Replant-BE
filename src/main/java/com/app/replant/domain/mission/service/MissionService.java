@@ -78,12 +78,19 @@ public class MissionService {
         final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
         
+        // 미션별 참여자 수 일괄 조회
+        List<Long> missionIds = allMissions.getContent().stream()
+                .map(Mission::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
+        
         // MissionResponse로 변환 (전체 미션)
         List<MissionResponse> allMissionResponses = allMissions.getContent().stream()
                 .map(mission -> {
                     boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
                     boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-                    return MissionResponse.from(mission, isAttempted, isCompleted);
+                    Long participantCount = participantCountMap.getOrDefault(mission.getId(), 0L);
+                    return MissionResponse.from(mission, isAttempted, isCompleted, participantCount);
                 })
                 .collect(Collectors.toList());
         
@@ -178,10 +185,18 @@ public class MissionService {
         
         final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        
+        // 미션별 참여자 수 일괄 조회
+        List<Long> missionIds = missions.getContent().stream()
+                .map(Mission::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isAttempted, isCompleted);
+            Long participantCount = participantCountMap.getOrDefault(mission.getId(), 0L);
+            return MissionResponse.from(mission, isAttempted, isCompleted, participantCount);
         });
     }
 
@@ -242,10 +257,18 @@ public class MissionService {
         
         final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        
+        // 미션별 참여자 수 일괄 조회
+        List<Long> missionIds = missions.getContent().stream()
+                .map(Mission::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isAttempted, isCompleted);
+            Long participantCount = participantCountMap.getOrDefault(mission.getId(), 0L);
+            return MissionResponse.from(mission, isAttempted, isCompleted, participantCount);
         });
     }
 
@@ -268,7 +291,10 @@ public class MissionService {
                     .anyMatch(um -> um.getStatus() == UserMissionStatus.COMPLETED);
         }
         
-        return MissionResponse.from(mission, reviewCount, isAttempted, isCompleted);
+        // 참여자 수 조회
+        long participantCount = userMissionRepository.countDistinctUsersByMissionId(missionId);
+        
+        return MissionResponse.from(mission, reviewCount, isAttempted, isCompleted, participantCount);
     }
 
     public Page<MissionReviewResponse> getReviews(Long missionId, Pageable pageable) {
@@ -326,7 +352,8 @@ public class MissionService {
                 .build();
 
         Mission saved = missionRepository.save(mission);
-        return MissionResponse.from(saved);
+        // 새로 생성된 미션이므로 참여자 수는 0
+        return MissionResponse.from(saved, false, false, 0L);
     }
 
     @Transactional
@@ -354,7 +381,9 @@ public class MissionService {
             mission.setActive(request.getIsActive());
         }
 
-        return MissionResponse.from(mission);
+        // 참여자 수 조회
+        long participantCount = userMissionRepository.countDistinctUsersByMissionId(missionId);
+        return MissionResponse.from(mission, false, false, participantCount);
     }
 
     /**
@@ -383,8 +412,9 @@ public class MissionService {
                 .collect(Collectors.toList());
 
         List<Mission> savedMissions = missionRepository.saveAll(missions);
+        // 새로 생성된 미션이므로 참여자 수는 모두 0
         return savedMissions.stream()
-                .map(MissionResponse::from)
+                .map(mission -> MissionResponse.from(mission, false, false, 0L))
                 .collect(Collectors.toList());
     }
 
@@ -398,7 +428,9 @@ public class MissionService {
     public MissionResponse toggleMissionActive(Long missionId, Boolean isActive) {
         Mission mission = findMissionById(missionId);
         mission.setActive(isActive);
-        return MissionResponse.from(mission);
+        // 참여자 수 조회
+        long participantCount = userMissionRepository.countDistinctUsersByMissionId(missionId);
+        return MissionResponse.from(mission, false, false, participantCount);
     }
 
     // ============ 커스텀 미션 관리 ============
@@ -438,10 +470,18 @@ public class MissionService {
         
         final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        
+        // 미션별 참여자 수 일괄 조회
+        List<Long> missionIds = missions.getContent().stream()
+                .map(Mission::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isAttempted, isCompleted);
+            Long participantCount = participantCountMap.getOrDefault(mission.getId(), 0L);
+            return MissionResponse.from(mission, isAttempted, isCompleted, participantCount);
         });
     }
 
@@ -491,10 +531,18 @@ public class MissionService {
         
         final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        
+        // 미션별 참여자 수 일괄 조회
+        List<Long> missionIds = missions.getContent().stream()
+                .map(Mission::getId)
+                .collect(Collectors.toList());
+        Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isAttempted, isCompleted);
+            Long participantCount = participantCountMap.getOrDefault(mission.getId(), 0L);
+            return MissionResponse.from(mission, isAttempted, isCompleted, participantCount);
         });
     }
 
@@ -524,7 +572,10 @@ public class MissionService {
                     .anyMatch(um -> um.getStatus() == UserMissionStatus.COMPLETED);
         }
 
-        return MissionResponse.from(mission, isAttempted, isCompleted);
+        // 참여자 수 조회
+        long participantCount = userMissionRepository.countDistinctUsersByMissionId(missionId);
+
+        return MissionResponse.from(mission, isAttempted, isCompleted, participantCount);
     }
 
     /**
@@ -562,7 +613,8 @@ public class MissionService {
                 mission.getTitle(), mission.getMissionType(), userId);
 
         Mission saved = missionRepository.save(mission);
-        return MissionResponse.from(saved);
+        // 새로 생성된 미션이므로 참여자 수는 0
+        return MissionResponse.from(saved, false, false, 0L);
     }
 
     /**
@@ -596,7 +648,9 @@ public class MissionService {
                 request.getIsPublic()
         );
 
-        return MissionResponse.from(mission);
+        // 참여자 수 조회
+        long participantCount = userMissionRepository.countDistinctUsersByMissionId(missionId);
+        return MissionResponse.from(mission, false, false, participantCount);
     }
 
     /**
