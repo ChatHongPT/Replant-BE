@@ -36,6 +36,24 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Create .env from secrets
+        run: |
+          echo "DB1_URL=${{ secrets.DB1_URL }}" >> .env
+          echo "DB1_USERNAME=${{ secrets.DB1_USERNAME }}" >> .env
+          echo "DB1_PASSWORD=${{ secrets.DB1_PASSWORD }}" >> .env
+          echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> .env
+          echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> .env
+          echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> .env
+          echo "JWT=${{ secrets.JWT }}" >> .env
+          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" >> .env
+          echo "S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}" >> .env
+          echo "S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}" >> .env
+          echo "S3_CLIENT=${{ secrets.S3_CLIENT }}" >> .env
+          echo "S3_REGION=${{ secrets.S3_REGION }}" >> .env
+          echo "GOOGLE_MAIL=${{ secrets.GOOGLE_MAIL }}" >> .env
+          echo "GOOGLE_APP_PASSWORD=${{ secrets.GOOGLE_APP_PASSWORD }}" >> .env
+          echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
+
       - name: Run tests
         run: ./gradlew test
 
