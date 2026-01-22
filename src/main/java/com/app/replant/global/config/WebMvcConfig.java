@@ -2,6 +2,8 @@ package com.app.replant.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +16,8 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Configuration
@@ -35,13 +39,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     }
 
     /**
-     * HTTP 메시지 컨버터 설정 (UTF-8 인코딩 보장)
+     * HTTP 메시지 컨버터 설정 (UTF-8 인코딩 보장, LocalDateTime ISO 형식 직렬화)
      */
     @Override
     public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        javaTimeModule.addSerializer(LocalDateTime.class, 
+            new LocalDateTimeSerializer(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        
         Jackson2ObjectMapperBuilder builder = Jackson2ObjectMapperBuilder.json()
                 .defaultViewInclusion(true)
-                .failOnUnknownProperties(false);
+                .failOnUnknownProperties(false)
+                .modules(javaTimeModule);
         
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter(builder.build());
         converter.setDefaultCharset(StandardCharsets.UTF_8);
@@ -49,13 +58,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     }
 
     /**
-     * ObjectMapper Bean 설정 (UTF-8 인코딩 보장)
+     * ObjectMapper Bean 설정 (UTF-8 인코딩 보장, LocalDateTime ISO 형식 직렬화)
      */
     @Bean
     public ObjectMapper objectMapper() {
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        javaTimeModule.addSerializer(LocalDateTime.class, 
+            new LocalDateTimeSerializer(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        
         return Jackson2ObjectMapperBuilder.json()
                 .defaultViewInclusion(true)
                 .failOnUnknownProperties(false)
+                .modules(javaTimeModule)
                 .build();
     }
 }
