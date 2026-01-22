@@ -10,7 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -23,6 +23,7 @@ public class MailServiceImpl implements MailService {
 
     private final JavaMailSender mailSender;
     private final StringRedisTemplate redisTemplate;
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${GOOGLE_MAIL:noreply@replant.com}")
     private String fromEmail;
@@ -33,8 +34,8 @@ public class MailServiceImpl implements MailService {
     @Override
     public String sendVerificationCode(String email) {
         try {
-            // 6자리 인증 코드 생성
-            String code = String.format("%06d", new Random().nextInt(1000000));
+            // 6자리 인증 코드 생성 (보안 강화: SecureRandom 사용)
+            String code = String.format("%06d", secureRandom.nextInt(1_000_000));
 
             // HTML 이메일 생성
             MimeMessage message = mailSender.createMimeMessage();
@@ -133,8 +134,8 @@ public class MailServiceImpl implements MailService {
     @Override
     public String sendTemporaryPassword(String email, String name) {
         try {
-            // 임시 비밀번호 생성 (8자리 랜덤)
-            String temporaryPassword = String.format("%08d", new Random().nextInt(100000000));
+            // 임시 비밀번호 생성 (8자리 랜덤, 보안 강화: SecureRandom 사용)
+            String temporaryPassword = String.format("%08d", secureRandom.nextInt(100_000_000));
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
