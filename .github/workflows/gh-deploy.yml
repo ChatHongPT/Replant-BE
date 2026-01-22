@@ -183,12 +183,11 @@ jobs:
           cache-to: type=gha,mode=max
 
   trivy_scan:
-    name: Run Trivy Image Scan (gate + report)
+    name: Run Trivy Image Scan (gate + report + slack)
     needs: docker_build_and_push
     runs-on: ubuntu-latest
     steps:
       - name: Set image reference
-        id: set-image-ref
         run: |
           echo "IMAGE_REF=${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
@@ -201,17 +200,14 @@ jobs:
       - name: Pull image
         run: docker pull "${IMAGE_REF}"
 
-      # 템플릿은 가능하면 repo에 고정(vendoring) 추천
-      # 예: .trivy/html.tpl 파일을 커밋해두고 curl 단계 제거
       - name: Download Trivy HTML Template
         run: |
           mkdir -p .trivy
           curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o .trivy/html.tpl
 
+      # 1) HTML 리포트(항상 생성, 실패 안 함)
       - name: Trivy report (HTML)
         uses: aquasecurity/trivy-action@0.28.0
-        env:
-          IMAGE_REF: ${{ env.IMAGE_REF }}
         with:
           image-ref: ${{ env.IMAGE_REF }}
           format: template
@@ -229,10 +225,56 @@ jobs:
           name: trivy-report
           path: trivy-report.html
 
+      # 2) Slack용 JSON 생성(항상, 실패 안 함)
+      - name: Trivy scan (JSON for Slack)
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: json
+          output: trivy-result.json
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      # 3) Slack 알림(항상)
+      - name: Send Trivy CVE summary to Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          IMAGE_REF: ${{ env.IMAGE_REF }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+          SUMMARY=$(jq -r '
+            [
+              .Results[]?
+              | .Vulnerabilities[]?
+              | select(.Severity=="CRITICAL" or .Severity=="HIGH")
+              | "- \(.Severity) \(.VulnerabilityID) | \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion // "unfixed")"
+            ]
+            | unique
+            | .[0:25]
+            | join("\n")
+          ' trivy-result.json)
+
+          if [ -z "$SUMMARY" ] || [ "$SUMMARY" = "null" ]; then
+            TEXT="✅ Trivy: CRITICAL/HIGH 없음\n• Image: ${IMAGE_REF}\n• Run: ${GITHUB_RUN_URL}"
+          else
+            TEXT="🚨 Trivy 발견 (CRITICAL/HIGH)\n• Repo: ${GITHUB_REPO}\n• Image: ${IMAGE_REF}\n• Run: ${GITHUB_RUN_URL}\n\n${SUMMARY}"
+          fi
+
+          jq -n --arg text "$TEXT" '{text:$text}' \
+            | curl -sSf -X POST -H 'Content-type: application/json' --data @- "$SLACK_WEBHOOK_URL"
+
+      # 4) 게이트는 맨 마지막(여기서 실패해도 Slack은 이미 보냄)
       - name: Trivy gate (fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@0.28.0
-        env:
-          IMAGE_REF: ${{ env.IMAGE_REF }}
         with:
           image-ref: ${{ env.IMAGE_REF }}
           format: table
@@ -247,6 +289,7 @@ jobs:
           echo "## Trivy Scan Report" >> "$GITHUB_STEP_SUMMARY"
           echo "Artifact로 trivy-report.html 업로드 완료" >> "$GITHUB_STEP_SUMMARY"
           echo "- Image: $IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"
+
 
   deploy:
     name: Deploy to EC2 (Docker Run)
