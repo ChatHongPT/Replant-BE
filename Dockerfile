@@ -2,11 +2,14 @@
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# 타임존 설정 (KST)
-RUN apk add --no-cache tzdata && \
+# 시스템 패키지 업데이트 및 타임존 설정 (KST)
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
     echo "Asia/Seoul" > /etc/timezone && \
-    apk del tzdata
+    apk del tzdata && \
+    rm -rf /var/cache/apk/*
 
 # 타임존, JVM 옵션
 ENV TZ=Asia/Seoul
