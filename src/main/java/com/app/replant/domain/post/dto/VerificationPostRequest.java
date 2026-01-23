@@ -21,4 +21,6 @@ public class VerificationPostRequest {
     private String content;
 
     private List<String> imageUrls;
+
+    private Integer completionRate; // 완료 정도 (0-100, 선택사항)
 }

@@ -179,6 +179,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV30Migration(conn);
             log.info("V30 마이그레이션 완료");
 
+            // V31: post 테이블에 completion_rate 컬럼 추가
+            log.info("V31 마이그레이션 실행 중: post 테이블 completion_rate 컬럼 추가...");
+            executeV31Migration(conn);
+            log.info("V31 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -840,6 +845,23 @@ public class ManualMigrationRunner implements CommandLineRunner {
             }
 
             log.info("V30 마이그레이션: todolist 테이블 is_public 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV31Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V31: post 테이블에 completion_rate 컬럼 추가
+
+            if (!columnExists(stmt, "post", "completion_rate")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `post` ADD COLUMN `completion_rate` INT NULL COMMENT '완료 정도 (0-100, VERIFICATION 타입만 사용)'"
+                );
+                log.info("V31 마이그레이션: post.completion_rate 컬럼 추가 완료");
+            } else {
+                log.info("V31 마이그레이션: post.completion_rate 컬럼이 이미 존재함");
+            }
+
+            log.info("V31 마이그레이션: post 테이블 completion_rate 컬럼 추가 완료");
         }
     }
 }

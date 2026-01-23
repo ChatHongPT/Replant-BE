@@ -157,7 +157,7 @@ public class PostService {
         }
 
         // VERIFICATION 타입 게시글 생성
-        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson);
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate());
         log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}", post.getPostType(), userId, userMission.getId());
 
         // UserMission 상태를 PENDING(인증대기)으로 변경
@@ -232,6 +232,44 @@ public class PostService {
         boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
 
         return PostResponse.from(post, commentCount, likeCount, isLiked, currentUserId);
+    }
+
+    /**
+     * 인증 게시글 수정
+     */
+    @Transactional
+    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostRequest request) {
+        Post post = postRepository.findVerificationPostById(postId)
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+
+        if (!post.isVerificationPost()) {
+            throw new CustomException(ErrorCode.INVALID_POST_TYPE);
+        }
+
+        if (!post.isAuthor(userId)) {
+            throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
+        }
+
+        if ("APPROVED".equals(post.getStatus())) {
+            throw new CustomException(ErrorCode.VERIFICATION_ALREADY_APPROVED);
+        }
+
+        String imageUrlsJson = null;
+        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
+            try {
+                imageUrlsJson = objectMapper.writeValueAsString(request.getImageUrls());
+            } catch (JsonProcessingException e) {
+                throw new CustomException(ErrorCode.INVALID_IMAGE_DATA);
+            }
+        }
+
+        post.updateVerificationContent(request.getContent(), imageUrlsJson, request.getCompletionRate());
+
+        long commentCount = commentRepository.countByPostId(postId);
+        long likeCount = postLikeRepository.countByPostId(postId);
+        boolean isLiked = postLikeRepository.existsByPostAndUser(post, userRepository.findById(userId).orElse(null));
+
+        return PostResponse.from(post, commentCount, likeCount, isLiked, userId);
     }
 
     @Transactional

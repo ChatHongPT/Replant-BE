@@ -107,6 +107,27 @@ public class VerificationController {
         return ApiResponse.success(post);
     }
 
+    @Operation(summary = "인증글 수정",
+            description = "인증글을 수정합니다. PENDING 상태만 수정 가능합니다.")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            content = @Content(examples = @ExampleObject(value = """
+                    {
+                      "content": "수정된 인증 내용",
+                      "imageUrls": ["https://example.com/image1.jpg"],
+                      "completionRate": 75
+                    }
+                    """))
+    )
+    @PutMapping("/{verificationId}")
+    public ApiResponse<PostResponse> updateVerificationPost(
+            @Parameter(description = "인증글 ID", example = "1")
+            @PathVariable Long verificationId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid VerificationPostRequest request) {
+        PostResponse post = postService.updateVerificationPost(verificationId, userId, request);
+        return ApiResponse.success(post);
+    }
+
     @Operation(summary = "인증글에 좋아요 (= 인증 투표)",
             description = "인증글에 좋아요를 누릅니다. 좋아요 수가 기준치 이상이면 자동 인증 완료됩니다.")
     @PostMapping("/{verificationId}/votes")

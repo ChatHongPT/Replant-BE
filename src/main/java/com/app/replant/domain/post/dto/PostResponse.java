@@ -42,6 +42,7 @@ public class PostResponse {
     // 인증 상태 (VERIFICATION일 경우)
     private String status;  // PENDING, APPROVED
     private LocalDateTime verifiedAt;
+    private Integer completionRate; // 완료 정도 (0-100)
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -120,6 +121,7 @@ public class PostResponse {
                 .isAuthor(isAuthor)
                 .status(post.getStatus())
                 .verifiedAt(post.getVerifiedAt())
+                .completionRate(post.getCompletionRate())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt());
 

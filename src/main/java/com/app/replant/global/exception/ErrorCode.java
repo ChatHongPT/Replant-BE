@@ -162,6 +162,8 @@ public enum ErrorCode {
     INVALID_IMAGE_DATA(HttpStatus.BAD_REQUEST, "V014", "이미지 데이터가 올바르지 않습니다"),
     DELETION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V015", "삭제가 불가능한 상태입니다"),
     VOTING_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V016", "투표가 불가능한 상태입니다"),
+    VERIFICATION_ALREADY_APPROVED(HttpStatus.FORBIDDEN, "V017", "인증 완료된 게시글은 수정할 수 없습니다"),
+    INVALID_POST_TYPE(HttpStatus.BAD_REQUEST, "V018", "잘못된 게시글 타입입니다"),
 
     // Post
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "게시글을 찾을 수 없습니다"),

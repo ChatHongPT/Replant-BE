@@ -79,6 +79,10 @@ public class Post extends BaseEntity {
     @Column(name = "has_valid_badge", nullable = false)
     private Boolean hasValidBadge = false;
 
+    // 완료 정도 (VERIFICATION일 때만 사용, 0-100)
+    @Column(name = "completion_rate")
+    private Integer completionRate;
+
     // 댓글 관계
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
@@ -108,7 +112,7 @@ public class Post extends BaseEntity {
     /**
      * 인증 게시글 생성
      */
-    public static Post createVerificationPost(User user, UserMission userMission, String content, String imageUrls) {
+    public static Post createVerificationPost(User user, UserMission userMission, String content, String imageUrls, Integer completionRate) {
         Post post = new Post();
         post.postType = PostType.VERIFICATION;
         post.user = user;
@@ -122,6 +126,7 @@ public class Post extends BaseEntity {
         post.status = "PENDING";
         post.delFlag = false;
         post.hasValidBadge = false;
+        post.completionRate = completionRate;
         return post;
     }
 
@@ -141,7 +146,7 @@ public class Post extends BaseEntity {
         }
     }
 
-    public void updateVerificationContent(String content, String imageUrls) {
+    public void updateVerificationContent(String content, String imageUrls, Integer completionRate) {
         if (this.postType != PostType.VERIFICATION) {
             throw new IllegalStateException("인증글만 이 메서드로 수정할 수 있습니다.");
         }
@@ -150,6 +155,9 @@ public class Post extends BaseEntity {
         }
         this.content = content;
         this.imageUrls = imageUrls;
+        if (completionRate != null) {
+            this.completionRate = completionRate;
+        }
     }
 
     // ========================================
