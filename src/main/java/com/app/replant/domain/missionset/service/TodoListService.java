@@ -298,8 +298,33 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
+                // 리뷰 정보 조회 (평균 별점, 리뷰 수)
+                Double averageRating = reviewRepository.calculateAverageRating(todoList);
+                long reviewCount = reviewRepository.countByTodoList(todoList);
+                
                 // 공개 투두리스트는 모든 사용자가 조회 가능 (본인 체크 없음)
-                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
+                TodoListDto.DetailResponse baseResponse = TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
+                
+                // 리뷰 정보를 포함하여 새로 빌드
+                return TodoListDto.DetailResponse.builder()
+                                .id(baseResponse.getId())
+                                .title(baseResponse.getTitle())
+                                .description(baseResponse.getDescription())
+                                .completedCount(baseResponse.getCompletedCount())
+                                .totalCount(baseResponse.getTotalCount())
+                                .progressRate(baseResponse.getProgressRate())
+                                .canCreateNew(baseResponse.getCanCreateNew())
+                                .status(baseResponse.getStatus())
+                                .missions(baseResponse.getMissions())
+                                .createdAt(baseResponse.getCreatedAt())
+                                .updatedAt(baseResponse.getUpdatedAt())
+                                .creatorId(baseResponse.getCreatorId())
+                                .creatorNickname(baseResponse.getCreatorNickname())
+                                .missionCount(baseResponse.getMissionCount() != null ? baseResponse.getMissionCount() : baseResponse.getTotalCount())
+                                .averageRating(averageRating != null ? averageRating : 0.0)
+                                .reviewCount((int) reviewCount)
+                                .addedCount((int) reviewCount) // 담은 횟수는 리뷰 수로 대체
+                                .build();
         }
 
         /**

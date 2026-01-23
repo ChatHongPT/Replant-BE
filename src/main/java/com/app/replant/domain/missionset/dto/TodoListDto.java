@@ -120,6 +120,13 @@ public class TodoListDto {
         private List<TodoMissionInfo> missions;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
+        // 공개 투두리스트용 필드
+        private Long creatorId;
+        private String creatorNickname;
+        private Integer missionCount;  // totalCount와 동일하지만 프론트엔드 호환성을 위해
+        private Integer addedCount;    // 담은 횟수 (리뷰 수로 대체하거나 별도 계산 필요)
+        private Double averageRating;  // 평균 별점
+        private Integer reviewCount;    // 리뷰 수
 
         public static DetailResponse from(TodoList todoList) {
             List<TodoMissionInfo> missionInfos = todoList.getMissions() != null
@@ -138,6 +145,9 @@ public class TodoListDto {
                     .missions(missionInfos)
                     .createdAt(todoList.getCreatedAt())
                     .updatedAt(todoList.getUpdatedAt())
+                    .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
+                    .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
+                    .missionCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
                     .build();
         }
         
@@ -191,6 +201,9 @@ public class TodoListDto {
                     .missions(missionInfos)
                     .createdAt(todoList.getCreatedAt())
                     .updatedAt(todoList.getUpdatedAt())
+                    .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
+                    .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
+                    .missionCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
                     .build();
         }
     }
