@@ -184,6 +184,30 @@ public class TodoListRepositoryCustomImpl implements TodoListRepositoryCustom {
         return getPage(query, pageable);
     }
 
+    @Override
+    public Page<TodoList> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
+        JPAQuery<TodoList> query = queryFactory
+                .selectFrom(todoList)
+                .leftJoin(todoList.creator, user).fetchJoin()
+                .where(todoList.setType.eq(MissionSetType.TODOLIST)
+                        .and(todoList.isPublic.isTrue())
+                        .and(todoList.title.containsIgnoreCase(keyword)
+                                .or(todoList.description.containsIgnoreCase(keyword))))
+                .distinct();
+
+        // 정렬 기준에 따라 정렬
+        if ("popular".equalsIgnoreCase(sortBy)) {
+            // 인기순: 완료 수가 많은 순, 그 다음 생성일 최신순
+            query.orderBy(todoList.completedCount.desc(),
+                    todoList.createdAt.desc());
+        } else {
+            // 최신순: 생성일 최신순
+            query.orderBy(todoList.createdAt.desc());
+        }
+
+        return getPage(query, pageable);
+    }
+
     // ========================================
     // 헬퍼 메서드
     // ========================================

@@ -271,6 +271,18 @@ public class TodoListService {
         }
 
         /**
+         * 공개 투두리스트 검색
+         */
+        public Page<TodoListDto.SimpleResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
+                if (keyword == null || keyword.trim().isEmpty()) {
+                        // 키워드가 없으면 일반 목록 조회
+                        return getPublicTodoLists(pageable, sortBy);
+                }
+                return todoListRepository.searchPublicTodoLists(keyword.trim(), pageable, sortBy)
+                                .map(TodoListDto.SimpleResponse::from);
+        }
+
+        /**
          * 투두리스트 상세 조회
          */
         public TodoListDto.DetailResponse getTodoListDetail(Long todoListId, Long userId) {
