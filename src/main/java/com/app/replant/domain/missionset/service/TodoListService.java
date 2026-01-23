@@ -271,6 +271,8 @@ public class TodoListService {
                                         TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
                                         // 평균 별점 계산
                                         Double averageRating = reviewRepository.calculateAverageRating(todoList);
+                                        // 리뷰 개수 계산
+                                        long reviewCount = reviewRepository.countByTodoList(todoList);
                                         response = TodoListDto.SimpleResponse.builder()
                                                         .id(response.getId())
                                                         .title(response.getTitle())
@@ -284,6 +286,7 @@ public class TodoListService {
                                                         .creatorId(response.getCreatorId())
                                                         .creatorNickname(response.getCreatorNickname())
                                                         .averageRating(averageRating != null ? averageRating : 0.0)
+                                                        .addedCount((int) reviewCount) // 리뷰 수를 addedCount로 설정
                                                         .build();
                                         return response;
                                 });
@@ -302,6 +305,8 @@ public class TodoListService {
                                         TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
                                         // 평균 별점 계산
                                         Double averageRating = reviewRepository.calculateAverageRating(todoList);
+                                        // 리뷰 개수 계산
+                                        long reviewCount = reviewRepository.countByTodoList(todoList);
                                         response = TodoListDto.SimpleResponse.builder()
                                                         .id(response.getId())
                                                         .title(response.getTitle())
@@ -315,6 +320,7 @@ public class TodoListService {
                                                         .creatorId(response.getCreatorId())
                                                         .creatorNickname(response.getCreatorNickname())
                                                         .averageRating(averageRating != null ? averageRating : 0.0)
+                                                        .addedCount((int) reviewCount) // 리뷰 수를 addedCount로 설정
                                                         .build();
                                         return response;
                                 });
