@@ -154,7 +154,11 @@ public class SecurityConfig {
                         // Actuator - 공개 엔드포인트만 허용 (health, info)
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN") // 나머지는 관리자만
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll(); // Swagger
+                        // Swagger/OpenAPI 경로 허용 (모든 변형 포함)
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/swagger-ui/index.html").permitAll()
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-resources/**", "/swagger-resources").permitAll()
+                        .requestMatchers("/webjars/**").permitAll(); // Swagger UI 리소스
 
                     // H2 Console - 개발 환경에서만 허용
                     if (Arrays.asList(environment.getActiveProfiles()).contains("dev") ||
