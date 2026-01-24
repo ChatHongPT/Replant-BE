@@ -116,6 +116,7 @@ public enum ErrorCode {
     CHAT_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT-001", "사용자를 찾을 수 없습니다."),
     CHAT_LLM_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-002", "AI 응답 생성에 실패했습니다."),
     CHAT_DATA_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-003", "사용자 데이터 조회에 실패했습니다."),
+    RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "CHAT-004", "일일 채팅 한도를 초과했습니다. 내일 다시 이용해주세요."),
 
     // Reant
     REANT_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "리앤트를 찾을 수 없습니다"),

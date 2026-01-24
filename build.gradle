@@ -36,7 +36,7 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom 'org.springframework.ai:spring-ai-bom:1.0.0-M4'
+        mavenBom 'org.springframework.ai:spring-ai-bom:1.1.0'
     }
 }
 
@@ -106,8 +106,11 @@ dependencies {
     // Spring Boot 3.2.0은 Jackson 2.15.x를 포함하며, 버전은 Spring Boot dependency management에 의해 관리됨
     // 명시적 버전 지정 시: implementation 'com.fasterxml.jackson.core:jackson-core:2.16.1'
 
-    // Spring AI - OpenAI (필요시 주석 해제)
-    // implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M4'
+    // Spring AI - Google Gemini (Primary)
+    implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
+    
+    // Spring AI - OpenAI 호환 (Qwen/vLLM Fallback용)
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     
     // Development
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

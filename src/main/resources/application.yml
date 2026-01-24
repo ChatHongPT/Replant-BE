@@ -96,6 +96,30 @@ spring:
       mail.smtp.starttls.enable: ${env.MAIL_SMTP_STARTTLS_ENABLE:true}
       mail.smtp.starttls.required: ${env.MAIL_SMTP_STARTTLS_REQUIRED:true}
 
+  # ===========================================
+  # Spring AI - LLM 설정
+  # 주의: spring-dotenv의 ${env.}가 여기서 작동하지 않으므로 시스템 환경변수 사용
+  # ===========================================
+  ai:
+    # Google Gemini (Primary)
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY}}
+        chat:
+          options:
+            model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
+            temperature: 0.7
+    
+    # OpenAI 호환 API - Qwen/vLLM (Fallback)
+    # 주의: Spring AI가 자동으로 /v1을 추가하므로 base-url에 /v1 제외
+    openai:
+      base-url: ${QWEN_API_URL:${env.QWEN_API_URL}}
+      api-key: ${QWEN_API_KEY:${env.QWEN_API_KEY:dummy}}
+      chat:
+        options:
+          model: ${QWEN_MODEL:${env.QWEN_MODEL:Qwen/Qwen2.5-14B-Instruct-AWQ}}
+          temperature: 0.7
+
 # ===========================================
 # JWT 설정 - .env에서 로드
 # ===========================================
@@ -118,6 +142,16 @@ aws:
 # ===========================================
 frontend:
   url: ${env.FRONTEND_URL:http://localhost:8081}
+
+# ===========================================
+# 채팅 서비스 설정
+# ===========================================
+chat:
+  llm:
+    primary: gemini
+    fallback: qwen
+    timeout: ${env.LLM_TIMEOUT:30000}
+    max-retries: ${env.LLM_MAX_RETRIES:2}
 
 # Swagger/OpenAPI 설정
 springdoc:
