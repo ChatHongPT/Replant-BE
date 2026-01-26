@@ -39,6 +39,7 @@ import com.app.replant.global.exception.*;
 import com.app.replant.global.security.jwt.*;
 import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
+import com.app.replant.global.filter.BadWordFilterService;
 import com.app.replant.global.infrastructure.service.mailService.MailService;
 import com.app.replant.global.infrastructure.service.token.RefreshTokenService;
 import com.app.replant.global.infrastructure.service.token.TokenBlacklistService;
@@ -65,6 +66,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final NotificationService notificationService;
+    private final BadWordFilterService badWordFilterService;
 
     @Override
     @Transactional(readOnly = true)
@@ -88,6 +90,11 @@ public class AuthServiceImpl implements AuthService {
             }
             if (joinDto.getPassword().length() < 8) {
                 throw new CustomException(ErrorCode.INVALID_FORMAT);
+            }
+
+            // 2-1. 닉네임 비속어 검사
+            if (badWordFilterService.containsBadWordIgnoreBlank(joinDto.getName())) {
+                throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
             }
 
             // 3. 중복 회원 확인

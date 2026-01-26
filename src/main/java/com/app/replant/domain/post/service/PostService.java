@@ -21,6 +21,7 @@ import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
+import com.app.replant.global.filter.BadWordFilterService;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,6 +61,7 @@ public class PostService {
     private final NotificationService notificationService;
     private final com.app.replant.domain.usermission.service.UserMissionService userMissionService;
     private final ObjectMapper objectMapper;
+    private final BadWordFilterService badWordFilterService;
 
     // ========================================
     // 게시글 CRUD
@@ -106,6 +108,9 @@ public class PostService {
         log.info("일반 게시글 생성 호출 - userId={}, title={}", userId, request.getTitle());
         User user = findUserById(userId);
 
+        // 비속어 필터링
+        validateBadWords(request.getTitle(), request.getContent());
+
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             try {
@@ -136,6 +141,9 @@ public class PostService {
     @Transactional
     public PostResponse createVerificationPost(Long userId, VerificationPostRequest request) {
         User user = findUserById(userId);
+
+        // 비속어 필터링
+        validateBadWords(null, request.getContent());
 
         // UserMission 조회
         UserMission userMission = userMissionRepository.findByIdAndUserId(request.getUserMissionId(), userId)
@@ -254,6 +262,9 @@ public class PostService {
             throw new CustomException(ErrorCode.VERIFICATION_ALREADY_APPROVED);
         }
 
+        // 비속어 필터링
+        validateBadWords(null, request.getContent());
+
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             try {
@@ -279,6 +290,9 @@ public class PostService {
         if (!post.isAuthor(userId)) {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
+
+        // 비속어 필터링
+        validateBadWords(request.getTitle(), request.getContent());
 
         String imageUrlsJson = null;
         if (request.getImageUrls() != null) {
@@ -345,6 +359,9 @@ public class PostService {
         Post post = findPostById(postId);
         User user = findUserById(userId);
 
+        // 비속어 필터링
+        validateBadWords(null, request.getContent());
+
         Comment parentComment = null;
         if (request.getParentId() != null) {
             parentComment = findCommentById(request.getParentId());
@@ -382,6 +399,9 @@ public class PostService {
         if (!comment.isAuthor(userId)) {
             throw new CustomException(ErrorCode.NOT_COMMENT_AUTHOR);
         }
+
+        // 비속어 필터링
+        validateBadWords(null, request.getContent());
 
         comment.updateContent(request.getContent());
         return CommentResponse.from(comment, userId);
@@ -560,6 +580,18 @@ public class PostService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * 비속어 필터링 검사
+     */
+    private void validateBadWords(String title, String content) {
+        if (title != null && badWordFilterService.containsBadWordIgnoreBlank(title)) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+        if (content != null && badWordFilterService.containsBadWordIgnoreBlank(content)) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
     }
 
     /**
