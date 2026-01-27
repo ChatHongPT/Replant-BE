@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -26,6 +27,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/todolists")
 @RequiredArgsConstructor
+@Slf4j
 public class TodoListController {
 
         private final TodoListService todoListService;
@@ -145,7 +147,27 @@ public class TodoListController {
         public ApiResponse<TodoListDto.DetailResponse> getTodoListDetail(
                         @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
                         @AuthenticationPrincipal Long userId) {
+                log.info("[TodoListController] GET /api/todolists/{} 호출됨, userId={}", todoListId, userId);
+                System.out.println(String.format("[TodoListController] GET /api/todolists/%d 호출됨, userId=%d", todoListId, userId));
+                System.err.println(String.format("[TodoListController] GET /api/todolists/%d 호출됨, userId=%d", todoListId, userId));
+                
                 TodoListDto.DetailResponse response = todoListService.getTodoListDetail(todoListId, userId);
+                
+                log.info("[TodoListController] 투두리스트 {} 조회 완료, 미션 수: {}", todoListId, 
+                        response.getMissions() != null ? response.getMissions().size() : 0);
+                System.out.println(String.format("[TodoListController] 투두리스트 %d 조회 완료, 미션 수: %d", todoListId,
+                        response.getMissions() != null ? response.getMissions().size() : 0));
+                
+                // 각 미션의 userMissionStatus 확인
+                if (response.getMissions() != null) {
+                    for (TodoListDto.TodoMissionInfo mission : response.getMissions()) {
+                        log.info("[TodoListController] 미션: missionId={}, title={}, userMissionStatus={}", 
+                                mission.getMissionId(), mission.getTitle(), mission.getUserMissionStatus());
+                        System.out.println(String.format("[TodoListController] 미션: missionId=%d, title=%s, userMissionStatus=%s",
+                                mission.getMissionId(), mission.getTitle(), mission.getUserMissionStatus()));
+                    }
+                }
+                
                 return ApiResponse.success(response);
         }
 

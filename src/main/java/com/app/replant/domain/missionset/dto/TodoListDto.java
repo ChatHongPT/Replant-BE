@@ -5,6 +5,8 @@ import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -172,12 +174,26 @@ public class TodoListDto {
                 if (!missionIds.isEmpty()) {
                     List<com.app.replant.domain.usermission.entity.UserMission> userMissions = 
                             userMissionRepository.findByUserIdAndMissionIds(userId, missionIds);
-                    // 각 미션 ID별로 첫 번째 UserMission만 저장 (중복 방지)
+                    // 각 미션 ID별로 UserMission 저장 (PENDING 상태 우선)
+                    // 같은 미션 ID에 여러 UserMission이 있을 경우 PENDING 상태를 우선적으로 저장
                     for (com.app.replant.domain.usermission.entity.UserMission um : userMissions) {
                         if (um.getMission() != null && um.getMission().getId() != null) {
-                            userMissionMap.putIfAbsent(um.getMission().getId(), um);
+                            Long missionId = um.getMission().getId();
+                            com.app.replant.domain.usermission.entity.UserMission existing = userMissionMap.get(missionId);
+                            
+                            // 기존 UserMission이 없거나, 현재가 PENDING 상태이면 저장
+                            if (existing == null) {
+                                userMissionMap.put(missionId, um);
+                            } else if (um.getStatus() == com.app.replant.domain.usermission.enums.UserMissionStatus.PENDING 
+                                    && existing.getStatus() != com.app.replant.domain.usermission.enums.UserMissionStatus.PENDING) {
+                                // PENDING 상태를 우선적으로 저장
+                                userMissionMap.put(missionId, um);
+                            }
+                            
                             // 디버깅: UserMission 상태 로그
                             System.out.println(String.format("[TodoListDto] UserMission 조회: missionId=%d, status=%s, assignedAt=%s", 
+                                    um.getMission().getId(), um.getStatus(), um.getAssignedAt()));
+                            System.err.println(String.format("[TodoListDto] UserMission 조회: missionId=%d, status=%s, assignedAt=%s", 
                                     um.getMission().getId(), um.getStatus(), um.getAssignedAt()));
                         }
                     }
@@ -192,8 +208,12 @@ public class TodoListDto {
                         if (userMission == null) {
                             System.out.println(String.format("[TodoListDto] UserMission 없음: missionId=%d, title=%s", 
                                     msm.getMission().getId(), msm.getMission().getTitle()));
+                            System.err.println(String.format("[TodoListDto] UserMission 없음: missionId=%d, title=%s", 
+                                    msm.getMission().getId(), msm.getMission().getTitle()));
                         } else {
                             System.out.println(String.format("[TodoListDto] UserMission 매핑: missionId=%d, status=%s", 
+                                    msm.getMission().getId(), userMission.getStatus()));
+                            System.err.println(String.format("[TodoListDto] UserMission 매핑: missionId=%d, status=%s", 
                                     msm.getMission().getId(), userMission.getStatus()));
                         }
                         missionInfos.add(TodoMissionInfo.from(msm, userMission));
@@ -225,6 +245,7 @@ public class TodoListDto {
 
     @Getter
     @Builder
+    @JsonInclude(JsonInclude.Include.ALWAYS) // 클래스 레벨에서도 설정
     public static class TodoMissionInfo {
         private Long id;
         private Long missionId;
@@ -239,6 +260,8 @@ public class TodoListDto {
         private LocalTime scheduledStartTime; // 시간대 배치: 시작 시간
         private LocalTime scheduledEndTime;   // 시간대 배치: 종료 시간
         private Boolean isVerified; // 인증 완료 여부 (필수 미션의 경우만 의미 있음)
+        @JsonProperty("userMissionStatus")
+        @JsonInclude(JsonInclude.Include.ALWAYS) // null이어도 JSON에 포함
         private String userMissionStatus; // UserMission의 상태 (ASSIGNED, PENDING, COMPLETED)
 
         public static TodoMissionInfo from(TodoListMission msm) {
