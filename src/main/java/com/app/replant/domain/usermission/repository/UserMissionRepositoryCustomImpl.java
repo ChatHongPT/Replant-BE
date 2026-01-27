@@ -170,12 +170,20 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
     public List<UserMission> findByUserIdAndMissionIds(
             Long userId,
             List<Long> missionIds) {
+        // 오늘 날짜 범위 계산 (00:00:00 ~ 23:59:59)
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfToday = today.atStartOfDay();      // 오늘 00:00:00
+        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();  // 내일 00:00:00 (오늘 23:59:59까지)
+        
         return queryFactory
                 .selectFrom(userMission)
                 .join(userMission.user, user).fetchJoin()
                 .join(userMission.mission, mission).fetchJoin()
                 .where(userMission.user.id.eq(userId)
-                        .and(userMission.mission.id.in(missionIds)))
+                        .and(userMission.mission.id.in(missionIds))
+                        // 오늘 할당된 미션만 조회 (투두리스트는 오늘 미션만 표시)
+                        .and(userMission.assignedAt.goe(startOfToday))
+                        .and(userMission.assignedAt.lt(endOfToday)))
                 .distinct()
                 .orderBy(userMission.mission.id.asc(), userMission.id.desc())
                 .fetch();
