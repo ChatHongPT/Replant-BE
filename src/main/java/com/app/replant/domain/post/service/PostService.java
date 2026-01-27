@@ -20,6 +20,7 @@ import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.reant.repository.ReantRepository;
+import com.app.replant.domain.badge.repository.UserBadgeRepository;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.missionset.entity.TodoListMission;
@@ -69,6 +70,7 @@ public class PostService {
     private final ReantRepository reantRepository;
     private final TodoListRepository todoListRepository;
     private final TodoListMissionRepository todoListMissionRepository;
+    private final UserBadgeRepository userBadgeRepository;
     private final ObjectMapper objectMapper;
     private final BadWordFilterService badWordFilterService;
 
@@ -364,12 +366,20 @@ public class PostService {
                 }
             }
             
-            // PENDING 또는 COMPLETED 상태였으면 ASSIGNED로 되돌림
-            if (userMission.getStatus() == UserMissionStatus.PENDING || 
-                userMission.getStatus() == UserMissionStatus.COMPLETED) {
-                userMission.updateStatus(UserMissionStatus.ASSIGNED);
-                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, 이전 상태={}, 새 상태={}", 
-                        userMission.getId(), userMission.getStatus(), UserMissionStatus.ASSIGNED);
+            // 인증 게시글 삭제 시 무조건 FAILED로 변경 (실수로 삭제한 경우도 고려하지 않음)
+            if (userMission.getStatus() != UserMissionStatus.FAILED) {
+                UserMissionStatus previousStatus = userMission.getStatus();
+                userMission.fail(); // FAILED 상태로 변경
+                log.info("인증글 삭제로 인해 UserMission 실패 처리: userMissionId={}, 이전 상태={}, 새 상태=FAILED", 
+                        userMission.getId(), previousStatus);
+                
+                // 배지 삭제 (해당 UserMission과 연결된 배지)
+                userBadgeRepository.findByUserMissionId(userMission.getId())
+                        .ifPresent(badge -> {
+                            userBadgeRepository.delete(badge);
+                            log.info("인증글 삭제로 인해 배지 삭제: badgeId={}, userMissionId={}", 
+                                    badge.getId(), userMission.getId());
+                        });
             }
             
             // 투두리스트에서 미션 제거 (todoListId가 있는 경우)
