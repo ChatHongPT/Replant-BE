@@ -54,43 +54,8 @@ public class UserMissionService {
 
     @Transactional(readOnly = true)
     public Page<UserMissionResponse> getUserMissions(Long userId, Pageable pageable) {
-        Page<UserMission> missions = userMissionRepository.findByUserIdWithFilters(userId, pageable);
-        
-        // COMPLETED 상태인 공식 미션 중 삭제된 게시글이 있는 경우 자동 수정
-        List<UserMission> missionsToFix = missions.getContent().stream()
-                .filter(userMission -> userMission.getStatus() == UserMissionStatus.COMPLETED 
-                        && userMission.getMission() != null 
-                        && userMission.getMission().isOfficialMission())
-                .filter(userMission -> {
-                    Optional<Post> postOpt = postRepository.findByUserMissionId(userMission.getId());
-                    boolean shouldFix = postOpt.isEmpty() || postOpt.get().isDeleted();
-                    if (shouldFix) {
-                        log.debug("미션 수정 대상 발견: userMissionId={}, postOpt.isEmpty()={}, isDeleted()={}", 
-                                userMission.getId(), postOpt.isEmpty(), postOpt.map(Post::isDeleted).orElse(true));
-                    }
-                    return shouldFix;
-                })
-                .collect(Collectors.toList());
-        
-        // 수정이 필요한 미션들을 별도 트랜잭션에서 처리
-        if (!missionsToFix.isEmpty()) {
-            fixCompletedMissionsWithoutPosts(missionsToFix);
-        }
-        
-        return missions.map(UserMissionResponse::from);
-    }
-    
-    /**
-     * 삭제된 게시글이 있는 COMPLETED 미션을 ASSIGNED로 변경
-     */
-    @Transactional
-    private void fixCompletedMissionsWithoutPosts(List<UserMission> missions) {
-        for (UserMission userMission : missions) {
-            log.warn("COMPLETED 상태인데 인증 게시글이 없거나 삭제됨. 상태를 ASSIGNED로 변경: userMissionId={}, missionId={}", 
-                    userMission.getId(), userMission.getMission() != null ? userMission.getMission().getId() : null);
-            userMission.updateStatus(UserMissionStatus.ASSIGNED);
-            userMissionRepository.saveAndFlush(userMission);
-        }
+        return userMissionRepository.findByUserIdWithFilters(userId, pageable)
+                .map(UserMissionResponse::from);
     }
 
     public UserMissionResponse getUserMission(Long userMissionId, Long userId) {
