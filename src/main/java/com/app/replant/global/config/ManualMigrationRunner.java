@@ -221,6 +221,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V37 마이그레이션 스킵 (이미 적용됨)");
             }
 
+            // V38: 모든 미션을 커뮤니티 인증으로 통일 (GPS/TIME → COMMUNITY)
+            log.info("V38 마이그레이션 실행 중: mission.verification_type → COMMUNITY 통일...");
+            executeV38Migration(conn);
+            log.info("V38 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -1091,6 +1096,20 @@ public class ManualMigrationRunner implements CommandLineRunner {
             // V37: post 테이블에 todo_list_id 컬럼 추가 (인증 게시글 작성 시점의 투두리스트 ID 저장용)
             executeIgnore(stmt, "ALTER TABLE `post` ADD COLUMN `todo_list_id` BIGINT NULL");
             log.info("V37 마이그레이션: post.todo_list_id 컬럼 추가 완료");
+        }
+    }
+
+    /**
+     * V38: 모든 미션의 인증 방식을 커뮤니티 인증(인증글 작성)으로 통일.
+     * 기존 GPS/TIME 인증 타입 미션을 COMMUNITY로 변경. (돌발 미션은 별도 DB 사용)
+     */
+    private void executeV38Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            int updated = stmt.executeUpdate(
+                "UPDATE `mission` SET `verification_type` = 'COMMUNITY' " +
+                "WHERE `verification_type` IN ('GPS', 'TIME')"
+            );
+            log.info("V38 마이그레이션: {}개 미션 verification_type → COMMUNITY 변경 완료", updated);
         }
     }
 }

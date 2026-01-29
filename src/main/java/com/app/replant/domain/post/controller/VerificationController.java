@@ -4,6 +4,9 @@ import com.app.replant.global.common.ApiResponse;
 import com.app.replant.domain.post.dto.PostResponse;
 import com.app.replant.domain.post.dto.VerificationPostRequest;
 import com.app.replant.domain.post.service.PostService;
+import com.app.replant.domain.usermission.dto.TimeVerifyRequest;
+import com.app.replant.domain.usermission.dto.VerifyMissionResponse;
+import com.app.replant.domain.usermission.service.UserMissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,7 +24,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @Tag(name = "Verification", description = "인증 게시판 API")
@@ -32,6 +34,7 @@ import java.util.Map;
 public class VerificationController {
 
     private final PostService postService;
+    private final UserMissionService userMissionService;
 
     @Operation(summary = "인증글 목록 조회",
             description = "인증 게시글 목록을 조회합니다. status로 필터링 가능 (PENDING, APPROVED)")
@@ -75,6 +78,17 @@ public class VerificationController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<PostResponse> posts = postService.getVerificationPosts(status, pageable, userId);
         return ApiResponse.success(posts);
+    }
+
+    @Operation(summary = "시간 인증",
+            description = "시간 인증 미션을 완료합니다. 돌발 미션(기상/식사)과 일반 투두리스트 TIME 인증 모두 지원.")
+    @PostMapping("/time")
+    public ApiResponse<VerifyMissionResponse> verifyByTime(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid TimeVerifyRequest request) {
+        VerifyMissionResponse response = userMissionService.verifyByTime(
+                request.getUserMissionId(), userId);
+        return ApiResponse.success(response);
     }
 
     @Operation(summary = "인증글 상세 조회")

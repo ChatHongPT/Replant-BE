@@ -597,6 +597,40 @@ public class UserMissionService {
     }
 
     /**
+     * 시간 인증 (단일 엔드포인트)
+     * - 돌발 미션(기상/식사): verifySpontaneousMission
+     * - 일반 투두리스트 TIME 인증: verifyMission (startedAt/endedAt 자동 생성)
+     */
+    @Transactional
+    public VerifyMissionResponse verifyByTime(Long userMissionId, Long userId) {
+        UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        if (userMission.isSpontaneousMission()) {
+            return verifySpontaneousMission(userMissionId, userId, new VerifySpontaneousMissionRequest());
+        }
+
+        VerificationType verificationType = getVerificationType(userMission);
+        if (verificationType != VerificationType.TIME) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE, "시간 인증이 아닌 미션입니다.");
+        }
+
+        Integer requiredMinutes = getRequiredMinutes(userMission);
+        // null 또는 0이면 "즉시 완료"로 처리 (버튼 한 번으로 완료)
+        if (requiredMinutes == null || requiredMinutes <= 0) {
+            requiredMinutes = 1;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startedAt = now.minusMinutes(requiredMinutes);
+        VerifyMissionRequest request = new VerifyMissionRequest();
+        request.setType(VerificationType.TIME);
+        request.setStartedAt(startedAt);
+        request.setEndedAt(now);
+        return verifyMission(userMissionId, userId, request);
+    }
+
+    /**
      * 돌발 미션 인증
      * - 기상 미션: 시간 제한 인증 (10분 안에 버튼 클릭)
      * - 식사 미션: 게시글 작성으로 인증
