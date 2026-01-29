@@ -1,26 +1,16 @@
 package com.app.replant.global.infrastructure.service.fcm;
 
-import com.app.replant.domain.notification.dto.FcmMessageDto;
 import com.app.replant.domain.notification.dto.FcmSendDto;
 import com.app.replant.domain.notification.entity.Notification;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.messaging.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.http.*;
-import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,13 +30,9 @@ import java.util.Optional;
 public class FcmServiceImpl implements FcmService {
 
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
-    
+
     private static final int MAX_RETRY_ATTEMPTS = 3; // 최대 재시도 횟수
     private static final long RETRY_DELAY_MS = 1000; // 재시도 간격 (1초)
-    private static final String FIREBASE_CONFIG_PATH = "firebase/replant-application-firebase-adminsdk-fbsvc-639f320f0c.json";
-    private static final String FCM_API_URL = "https://fcm.googleapis.com/v1/projects/replant-application/messages:send";
-    private static final String CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
     
     /**
      * FCM 토큰 마스킹 (로그 보안)
@@ -90,142 +76,37 @@ public class FcmServiceImpl implements FcmService {
     @Override
     public int sendMessageTo(FcmSendDto fcmSendDto) throws IOException {
         try {
-            String message = makeMessage(fcmSendDto);
-            RestTemplate restTemplate = new RestTemplate();
-            
-            /**
-             * 추가된 사항 : RestTemplate 이용중 클라이언트의 한글 깨짐 증상에 대한 수정
-             * @reference : https://stackoverflow.com/questions/29392422/how-can-i-tell-resttemplate-to-post-with-utf-8-encoding
-             */
-            restTemplate.getMessageConverters()
-                    .add(0, new StringHttpMessageConverter(StandardCharsets.UTF_8));
+            Message message = Message.builder()
+                    .setToken(fcmSendDto.getToken())
+                    .setNotification(com.google.firebase.messaging.Notification.builder()
+                            .setTitle(fcmSendDto.getTitle())
+                            .setBody(fcmSendDto.getBody())
+                            .build())
+                    .putData("title", fcmSendDto.getTitle())
+                    .putData("body", fcmSendDto.getBody())
+                    .putData("click_action", "FLUTTER_NOTIFICATION_CLICK")
+                    .setAndroidConfig(AndroidConfig.builder()
+                            .setNotification(AndroidNotification.builder()
+                                    .setColor("#023c69")
+                                    .setSound("default")
+                                    .build())
+                            .build())
+                    .build();
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + getAccessToken());
+            String messageId = FirebaseMessaging.getInstance().send(message);
+            log.info("[FCM] 푸시 메시지 전송 성공 - messageId: {}", messageId);
+            return 1;
 
-            HttpEntity<String> entity = new HttpEntity<>(message, headers);
-
-            ResponseEntity<String> response = restTemplate.exchange(
-                    FCM_API_URL, 
-                    HttpMethod.POST, 
-                    entity, 
-                    String.class
-            );
-
-            String responseBody = response.getBody();
-            log.info("[FCM] 푸시 메시지 전송 응답 상태: {}, 응답 본문: {}", response.getStatusCode(), responseBody);
-            
-            // FCM API 응답 확인
-            if (response.getStatusCode() == HttpStatus.OK && responseBody != null) {
-                // 응답 본문에 name 필드가 있으면 성공 (FCM은 성공 시 message name을 반환)
-                if (responseBody.contains("\"name\"")) {
-                    log.info("[FCM] 푸시 메시지 전송 성공 - 응답: {}", responseBody);
-                    return 1;
-                } else {
-                    log.warn("[FCM] 푸시 메시지 전송 응답이 예상과 다름 - 응답: {}", responseBody);
-                    return 0;
-                }
-            }
-            
-            return 0;
-
-        } catch (HttpClientErrorException e) {
-            // FCM API 에러 응답 처리
-            String errorBody = e.getResponseBodyAsString();
-            log.error("[FCM] 푸시 메시지 전송 실패 - HTTP Status: {}, Error: {}", e.getStatusCode(), errorBody);
-            
-            // 유효하지 않은 토큰인 경우 (400 Bad Request, INVALID_ARGUMENT)
-            if (e.getStatusCode() == HttpStatus.BAD_REQUEST && 
-                errorBody != null && (errorBody.contains("INVALID_ARGUMENT") || errorBody.contains("UNREGISTERED"))) {
+        } catch (FirebaseMessagingException e) {
+            log.error("[FCM] 푸시 메시지 전송 실패 - error: {}, errorCode: {}", e.getMessage(), e.getMessagingErrorCode());
+            if (e.getMessagingErrorCode() == MessagingErrorCode.INVALID_ARGUMENT ||
+                e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED) {
                 log.warn("[FCM] 유효하지 않은 FCM 토큰 - token: {}", maskToken(fcmSendDto.getToken()));
-                // 토큰이 유효하지 않으므로 User 테이블에서 제거할 수 있지만, 
-                // 여기서는 userId를 알 수 없으므로 Controller에서 처리하도록 함
             }
             return 0;
         } catch (Exception e) {
             log.error("[FCM] 푸시 메시지 전송 중 예외 발생", e);
             return 0;
-        }
-    }
-
-    /**
-     * Firebase Admin SDK의 비공개 키를 참조하여 Bearer 토큰을 발급 받습니다.
-     *
-     * @return Bearer token
-     * @throws IOException IO 예외
-     */
-    private String getAccessToken() throws IOException {
-        try {
-            // Firebase 키 파일 존재 여부 확인
-            ClassPathResource resource = new ClassPathResource(FIREBASE_CONFIG_PATH);
-            if (!resource.exists()) {
-                log.error("[FCM] Firebase 키 파일을 찾을 수 없습니다: {}", FIREBASE_CONFIG_PATH);
-                throw new IOException("Firebase 키 파일을 찾을 수 없습니다: " + FIREBASE_CONFIG_PATH);
-            }
-            
-            log.debug("[FCM] Firebase 키 파일 로드 시도: {}", FIREBASE_CONFIG_PATH);
-            GoogleCredentials googleCredentials = GoogleCredentials
-                    .fromStream(resource.getInputStream())
-                    .createScoped(List.of(CLOUD_PLATFORM_SCOPE));
-
-            googleCredentials.refreshIfExpired();
-            String accessToken = googleCredentials.getAccessToken().getTokenValue();
-            log.debug("[FCM] Access Token 발급 성공");
-            return accessToken;
-        } catch (IOException e) {
-            String errorMessage = e.getMessage();
-            if (errorMessage != null && errorMessage.contains("Invalid JWT Signature")) {
-                log.error("[FCM] Access Token 발급 실패 - Firebase 키 파일이 유효하지 않습니다. " +
-                         "Firebase 콘솔에서 새로운 서비스 계정 키를 다운로드하여 교체해주세요. " +
-                         "경로: {}", FIREBASE_CONFIG_PATH, e);
-                throw new IOException("Firebase 키 파일이 유효하지 않습니다. 새로운 키 파일로 교체가 필요합니다.", e);
-            } else {
-                log.error("[FCM] Access Token 발급 실패 - 경로: {}", FIREBASE_CONFIG_PATH, e);
-                throw new IOException("Firebase Access Token 발급 실패: " + e.getMessage(), e);
-            }
-        }
-    }
-
-    /**
-     * FCM 전송 정보를 기반으로 메시지를 구성합니다. (Object -> String)
-     *
-     * @param fcmSendDto FcmSendDto
-     * @return String (JSON 문자열)
-     * @throws JsonProcessingException JSON 변환 실패 시
-     */
-    private String makeMessage(FcmSendDto fcmSendDto) throws JsonProcessingException {
-        try {
-            // data 필드 추가 (Android 앱이 포그라운드에 있을 때도 알림 표시를 위해)
-            Map<String, String> data = new HashMap<>();
-            data.put("title", fcmSendDto.getTitle());
-            data.put("body", fcmSendDto.getBody());
-            data.put("click_action", "FLUTTER_NOTIFICATION_CLICK"); // Flutter 앱의 경우
-            
-            FcmMessageDto fcmMessageDto = FcmMessageDto.builder()
-                    .message(FcmMessageDto.Message.builder()
-                            .token(fcmSendDto.getToken())
-                            .notification(FcmMessageDto.Notification.builder()
-                                    .title(fcmSendDto.getTitle())
-                                    .body(fcmSendDto.getBody())
-                                    .image(null)
-                                    .build())
-                            .data(data) // data 필드 추가
-                            .build())
-                    .validateOnly(false)
-                    .build();
-
-            String jsonMessage = objectMapper.writeValueAsString(fcmMessageDto);
-            // 로그에서 토큰 마스킹
-            String maskedJson = jsonMessage.replaceAll(
-                "\"token\"\\s*:\\s*\"([^\"]+)\"", 
-                "\"token\":\"" + maskToken(fcmSendDto.getToken()) + "\""
-            );
-            log.info("[FCM] 메시지 구성 완료 - JSON: {}", maskedJson);
-            return jsonMessage;
-        } catch (JsonProcessingException e) {
-            log.error("[FCM] 메시지 구성 실패", e);
-            throw e;
         }
     }
 
