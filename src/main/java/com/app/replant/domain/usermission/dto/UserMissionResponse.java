@@ -76,6 +76,12 @@ public class UserMissionResponse {
                                 .verificationType(mission.getVerificationType())
                                 .build());
             }
+        } else if (userMission.isSpontaneousMission()) {
+            // 돌발 미션의 경우 (mission이 null)
+            // missionType은 OFFICIAL로 설정하고, mission 정보는 null로 유지
+            // 실제 미션 정보는 spontaneous_mission 테이블에 있음
+            builder.missionType("OFFICIAL");
+            // mission 필드는 null로 유지 (프론트엔드에서 처리)
         }
 
         return builder.build();

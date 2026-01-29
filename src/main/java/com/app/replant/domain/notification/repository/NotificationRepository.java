@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
@@ -25,4 +26,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     @Query("SELECT COUNT(n) FROM Notification n WHERE n.user.id = :userId AND n.isRead = false")
     long countUnreadByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT n FROM Notification n WHERE n.user.id = :userId " +
+           "AND n.referenceType = :referenceType AND n.referenceId = :referenceId")
+    List<Notification> findByUserIdAndReference(@Param("userId") Long userId, 
+                                                 @Param("referenceType") String referenceType, 
+                                                 @Param("referenceId") Long referenceId);
 }

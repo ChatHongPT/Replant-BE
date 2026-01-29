@@ -204,7 +204,7 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
         return queryFactory
                 .selectFrom(userMission)
                 .join(userMission.user, user).fetchJoin()
-                .join(userMission.mission, mission).fetchJoin()
+                .leftJoin(userMission.mission, mission).fetchJoin()  // LEFT JOIN으로 변경하여 mission이 null인 돌발 미션도 조회
                 .where(userMission.user.id.eq(userId)
                         .and(userMission.assignedAt.goe(startOfDay))
                         .and(userMission.assignedAt.lt(endOfDay)))
@@ -221,7 +221,7 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
         return queryFactory
                 .selectFrom(userMission)
                 .join(userMission.user, user).fetchJoin()
-                .join(userMission.mission, mission).fetchJoin()
+                .leftJoin(userMission.mission, mission).fetchJoin()  // LEFT JOIN으로 변경하여 mission이 null인 돌발 미션도 조회
                 .where(userMission.user.id.eq(userId)
                         .and(userMission.assignedAt.goe(startOfStartDate))
                         .and(userMission.assignedAt.lt(endOfEndDate)))

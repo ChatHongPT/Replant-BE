@@ -7,6 +7,9 @@ import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.repository.MissionRepository;
+import com.app.replant.domain.spontaneousmission.entity.SpontaneousMission;
+import com.app.replant.domain.spontaneousmission.enums.SpontaneousMissionType;
+import com.app.replant.domain.spontaneousmission.repository.SpontaneousMissionRepository;
 import com.app.replant.domain.notification.entity.Notification;
 import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
@@ -55,6 +58,7 @@ public class SpontaneousMissionScheduler {
     private final NotificationService notificationService;
     private final FcmService fcmService;
     private final MealLogService mealLogService;
+    private final SpontaneousMissionRepository spontaneousMissionRepository;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     
@@ -315,37 +319,31 @@ public class SpontaneousMissionScheduler {
             return;
         }
         
-        // 기상 관련 미션 찾기 (자기관리 카테고리, 난이도 낮음)
-        Optional<Mission> wakeUpMission = missionRepository.findAll().stream()
-                .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
-                .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
-                .filter(mission -> mission.getCategory() == MissionCategory.DAILY_LIFE 
-                        || mission.getCategory() == MissionCategory.HEALTH)
-                .filter(mission -> mission.getTitle().contains("기상") || mission.getTitle().contains("일어나"))
-                .findFirst();
+        // spontaneous_mission 테이블에서 기상 미션 정보 조회
+        Optional<SpontaneousMission> spontaneousMissionOpt = spontaneousMissionRepository
+                .findByMissionType(SpontaneousMissionType.WAKE_UP);
         
-        if (wakeUpMission.isEmpty()) {
-            log.warn("기상 미션을 찾을 수 없습니다. 기본 미션을 할당합니다.");
-            // 기본 미션 찾기
-            wakeUpMission = missionRepository.findAll().stream()
-                    .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
-                    .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
-                    .filter(mission -> mission.getCategory() == MissionCategory.DAILY_LIFE)
-                    .findFirst();
+        if (spontaneousMissionOpt.isEmpty()) {
+            log.warn("spontaneous_mission 테이블에서 기상 미션을 찾을 수 없습니다. userId={}", user.getId());
+            return;
         }
         
-        if (wakeUpMission.isPresent()) {
-            UserMission userMission = assignMissionToUser(user, wakeUpMission.get(), now, "기상");
-            if (userMission != null) {
-                log.info("기상 미션 할당 완료: userId={}, missionId={}, userMissionId={}", user.getId(), wakeUpMission.get().getId(), userMission.getId());
-                
-                // 알림 전송 (SSE/FCM)
-                sendSpontaneousMissionNotification(user, wakeUpMission.get().getTitle(), "기상", userMission.getId());
-            } else {
-                log.warn("기상 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
-            }
+        SpontaneousMission spontaneousMission = spontaneousMissionOpt.get();
+        String spontaneousTitle = spontaneousMission.getTitle();
+        
+        log.debug("spontaneous_mission에서 조회한 기상 미션: title={}, description={}, missionType={}", 
+                spontaneousTitle, spontaneousMission.getDescription(), spontaneousMission.getMissionType());
+        
+        // 돌발 미션은 mission 테이블에 없으므로, spontaneous_mission 정보만으로 UserMission 생성
+        UserMission userMission = assignSpontaneousMissionToUser(user, spontaneousMission, now, "기상");
+        if (userMission != null) {
+            log.info("기상 미션 할당 완료: userId={}, userMissionId={}, spontaneousMissionId={}, title={}", 
+                    user.getId(), userMission.getId(), spontaneousMission.getId(), spontaneousTitle);
+            
+            // 알림 전송 (SSE/FCM)
+            sendSpontaneousMissionNotification(user, spontaneousTitle, "기상", userMission.getId());
         } else {
-            log.warn("할당할 기상 미션이 없습니다.");
+            log.warn("기상 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
         }
     }
 
@@ -362,17 +360,27 @@ public class SpontaneousMissionScheduler {
             return;
         }
 
-        // MealLogService를 통해 미션 할당
+        // MealLogService를 통해 미션 할당 (기존 미션이 있으면 그것을 반환)
         MealLog mealLog = mealLogService.assignMealMission(user, mealTypeEnum, now.toLocalDate());
         
         if (mealLog != null) {
-            log.info("{} 식사 미션 할당 완료: userId={}, mealLogId={}", 
-                    mealType, user.getId(), mealLog.getId());
-            
-            // 알림 전송 (SSE/FCM) - mealLogId 전달
-            sendMealMissionNotification(user, mealTypeEnum, mealLog.getId());
+            // 미션이 새로 할당되었거나 기존 미션이 있는 경우
+            // ASSIGNED 상태이고 만료되지 않은 경우에만 알림 전송
+            if (mealLog.getStatus() == com.app.replant.domain.meallog.enums.MealLogStatus.ASSIGNED 
+                    && !mealLog.isExpired()) {
+                log.info("{} 식사 미션 알림 전송: userId={}, mealLogId={}, status={}, assignedAt={}, deadlineAt={}", 
+                        mealType, user.getId(), mealLog.getId(), mealLog.getStatus(),
+                        mealLog.getAssignedAt(), mealLog.getDeadlineAt());
+                
+                // 알림 전송 (SSE/FCM) - mealLogId 전달
+                sendMealMissionNotification(user, mealTypeEnum, mealLog.getId());
+            } else {
+                log.info("{} 식사 미션은 상태가 {}이거나 만료되어 알림을 전송하지 않음: userId={}, mealLogId={}, status={}, expired={}", 
+                        mealType, mealLog.getStatus(), user.getId(), mealLog.getId(), 
+                        mealLog.getStatus(), mealLog.isExpired());
+            }
         } else {
-            log.debug("사용자 {}는 오늘 이미 {} 식사 미션이 할당됨", user.getId(), mealType);
+            log.warn("식사 미션 할당 실패: userId={}, mealType={}", user.getId(), mealType);
         }
     }
 
@@ -415,54 +423,64 @@ public class SpontaneousMissionScheduler {
     }
 
     /**
-     * 감정일기 작성 미션 할당
+     * 감정일기 작성 알림 전송 (미션 할당 없이 알림만 전송)
      */
     private void assignEmotionalDiaryMission(User user, LocalDateTime now) {
-        // 오늘 이미 감정일기 미션이 할당되었는지 확인
-        if (hasSpontaneousMissionToday(user, "감정일기", now.toLocalDate())) {
-            log.debug("사용자 {}는 오늘 이미 감정일기 미션이 할당됨", user.getId());
+        // spontaneous_mission 테이블에서 감정일기 미션 정보 조회
+        Optional<SpontaneousMission> spontaneousMissionOpt = spontaneousMissionRepository
+                .findByMissionType(SpontaneousMissionType.DIARY);
+        
+        if (spontaneousMissionOpt.isEmpty()) {
+            log.warn("spontaneous_mission 테이블에서 감정일기 미션을 찾을 수 없습니다. userId={}", user.getId());
             return;
         }
         
-        // 감정일기 관련 미션 찾기
-        Optional<Mission> diaryMission = missionRepository.findAll().stream()
-                .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
-                .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
-                .filter(mission -> mission.getCategory() == MissionCategory.GROWTH 
-                        || mission.getCategory() == MissionCategory.DAILY_LIFE)
-                .filter(mission -> mission.getTitle().contains("일기") 
-                        || mission.getTitle().contains("감정")
-                        || mission.getTitle().contains("글쓰기")
-                        || mission.getTitle().contains("기록"))
-                .findFirst();
+        SpontaneousMission spontaneousMission = spontaneousMissionOpt.get();
+        String spontaneousTitle = spontaneousMission.getTitle();
         
-        if (diaryMission.isEmpty()) {
-            log.warn("감정일기 미션을 찾을 수 없습니다. 기본 미션을 할당합니다.");
-            diaryMission = missionRepository.findAll().stream()
-                    .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
-                    .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
-                    .filter(mission -> mission.getCategory() == MissionCategory.GROWTH)
-                    .findFirst();
-        }
+        log.debug("spontaneous_mission에서 조회한 감정일기 미션: title={}, description={}, missionType={}", 
+                spontaneousTitle, spontaneousMission.getDescription(), spontaneousMission.getMissionType());
         
-        if (diaryMission.isPresent()) {
-            UserMission userMission = assignMissionToUser(user, diaryMission.get(), now, "감정일기");
-            if (userMission != null) {
-                log.info("감정일기 미션 할당 완료: userId={}, missionId={}, userMissionId={}", 
-                        user.getId(), diaryMission.get().getId(), userMission.getId());
-                
-                // 알림 전송 (SSE/FCM)
-                sendSpontaneousMissionNotification(user, diaryMission.get().getTitle(), "감정일기", userMission.getId());
-            } else {
-                log.warn("감정일기 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
-            }
-        } else {
-            log.warn("할당할 감정일기 미션이 없습니다.");
-        }
+        // 감정일기는 공식 미션이 아니므로 UserMission 생성 없이 알림만 전송
+        // userMissionId는 null로 전달 (알림에서 처리)
+        sendSpontaneousMissionNotification(user, spontaneousTitle, "감정일기", null);
+        
+        log.info("감정일기 알림 전송 완료: userId={}, spontaneousMissionId={}, title={}", 
+                user.getId(), spontaneousMission.getId(), spontaneousTitle);
     }
 
     /**
-     * 사용자에게 미션 할당
+     * 사용자에게 돌발 미션 할당 (spontaneous_mission 테이블 사용)
+     * @return 할당된 UserMission 엔티티
+     */
+    private UserMission assignSpontaneousMissionToUser(User user, SpontaneousMission spontaneousMission, 
+                                                       LocalDateTime now, String missionType) {
+        // 중복 체크는 호출하는 쪽(assignWakeUpMission 등)에서 이미 수행하므로 여기서는 생략
+        // assignWakeUpMission에서 hasSpontaneousMissionToday를 호출하여 타입별로 구분해서 체크함
+        
+        // 미션 기간 설정 (돌발 미션은 당일 종료로 설정)
+        LocalDateTime dueDate = now.toLocalDate().atTime(23, 59, 59);
+        
+        // 돌발 미션은 mission을 null로 설정 (spontaneous_mission 테이블에만 존재)
+        UserMission userMission = UserMission.builder()
+                .user(user)
+                .mission(null)  // 돌발 미션은 mission 테이블에 없음
+                .missionType(MissionType.OFFICIAL)  // 돌발 미션도 공식 미션으로 취급
+                .assignedAt(now)
+                .dueDate(dueDate)
+                .status(UserMissionStatus.ASSIGNED)
+                .isSpontaneous(true)  // 돌발 미션으로 표시
+                .build();
+        
+        UserMission saved = userMissionRepository.save(userMission);
+        log.info("돌발 미션 할당 완료: userId={}, spontaneousMissionId={}, type={}, title={}, assignedAt={}", 
+                user.getId(), spontaneousMission.getId(), missionType, spontaneousMission.getTitle(), now);
+        
+        return saved;
+    }
+
+    /**
+     * 사용자에게 일반 미션 할당 (mission 테이블 사용)
      * @return 할당된 UserMission 엔티티
      */
     private UserMission assignMissionToUser(User user, Mission mission, LocalDateTime now, String missionType) {
@@ -510,36 +528,43 @@ public class SpontaneousMissionScheduler {
      * - 감정일기 미션: 감정일기 작성 화면으로 바로 이동
      */
     private void sendSpontaneousMissionNotification(User user, String missionTitle, String missionType, Long userMissionId) {
-        if (userMissionId == null) {
-            log.warn("userMissionId가 null이므로 알림을 전송하지 않습니다. userId={}, missionType={}", user.getId(), missionType);
-            return;
-        }
-        
         try {
             log.info("돌발 미션 알림 전송 시작: userId={}, missionType={}, userMissionId={}, fcmToken={}", 
-                    user.getId(), missionType, userMissionId, user.getFcmToken() != null ? "있음" : "없음");
+                    user.getId(), missionType, userMissionId != null ? userMissionId : "null(알림만)", 
+                    user.getFcmToken() != null ? "있음" : "없음");
             
             String title;
             String content;
             NotificationType notificationType;
+            String referenceType;
+            Long referenceId;
             
             // 미션 타입에 따라 알림 내용과 타입 설정
             if ("기상".equals(missionType)) {
                 title = "기상 시간입니다! 🌅";
                 content = "기상 미션이 도착했습니다. 10분 안에 인증해주세요!";
                 notificationType = NotificationType.SPONTANEOUS_WAKE_UP;  // 프론트에서 인증 화면으로 라우팅
+                referenceType = "USER_MISSION";
+                referenceId = userMissionId;
             } else if (missionType.contains("식사")) {
                 title = String.format("%s 시간입니다! 🍽️", missionType);
                 content = String.format("%s 미션이 도착했습니다. 게시글을 작성해주세요!", missionType);
                 notificationType = NotificationType.SPONTANEOUS_MEAL;  // 프론트에서 인증 화면으로 라우팅
+                referenceType = "USER_MISSION";
+                referenceId = userMissionId;
             } else if ("감정일기".equals(missionType)) {
                 title = "감정일기 작성 시간입니다! ✍️";
                 content = "오늘 하루를 돌아보며 감정일기를 작성해보세요.";
                 notificationType = NotificationType.SPONTANEOUS_DIARY;  // 프론트에서 감정일기 작성 화면으로 바로 이동
+                // 감정일기는 UserMission이 없으므로 참조 정보 없음
+                referenceType = null;
+                referenceId = null;
             } else {
                 title = "돌발 미션이 도착했습니다! 🎯";
                 content = String.format("%s 시간입니다. '%s' 미션을 확인해보세요!", missionType, missionTitle);
                 notificationType = NotificationType.MISSION_ASSIGNED;
+                referenceType = userMissionId != null ? "USER_MISSION" : null;
+                referenceId = userMissionId;
             }
             
             Notification savedNotification = notificationService.createAndPushNotification(
@@ -547,8 +572,8 @@ public class SpontaneousMissionScheduler {
                     notificationType,
                     title,
                     content,
-                    "USER_MISSION",  // 참조 타입
-                    userMissionId    // 참조 ID (userMissionId)
+                    referenceType,
+                    referenceId
             );
             
             // 기상 미션의 경우 중요한 알림이므로 FCM을 확실히 전송
@@ -598,7 +623,38 @@ public class SpontaneousMissionScheduler {
         
         // 미션 타입별로 구분해서 체크
         for (UserMission um : todayMissions) {
-            if (um.getMission() == null) continue;
+            // 돌발 미션은 mission이 null일 수 있음 (spontaneous_mission 테이블에만 존재)
+            if (um.getMission() == null && um.isSpontaneousMission()) {
+                // mission이 null인 돌발 미션은 할당 시간을 기준으로 타입을 구분
+                String assignedTime = um.getAssignedAt().format(TIME_FORMATTER);
+                String userWakeTime = roundTimeTo5Minutes(user.getWakeTime());
+                String userSleepTime = roundTimeTo5Minutes(user.getSleepTime());
+                
+                // 기상 미션 체크: 할당 시간이 사용자 기상 시간과 일치하는지 확인
+                if ("기상".equals(missionType)) {
+                    if (userWakeTime != null && assignedTime.equals(userWakeTime)) {
+                        log.debug("사용자 {}는 오늘 이미 기상 미션(mission=null)이 할당됨: userMissionId={}, assignedAt={}", 
+                                user.getId(), um.getId(), um.getAssignedAt());
+                        return true;
+                    }
+                }
+                
+                // 감정일기 미션 체크: 할당 시간이 사용자 취침 시간과 일치하는지 확인
+                if ("감정일기".equals(missionType)) {
+                    if (userSleepTime != null && assignedTime.equals(userSleepTime)) {
+                        log.debug("사용자 {}는 오늘 이미 감정일기 미션(mission=null)이 할당됨: userMissionId={}, assignedAt={}", 
+                                user.getId(), um.getId(), um.getAssignedAt());
+                        return true;
+                    }
+                }
+                
+                continue;
+            }
+            
+            // mission이 있는 경우 (일반 미션이거나 식사 미션)
+            if (um.getMission() == null) {
+                continue;
+            }
             
             String missionTitle = um.getMission().getTitle();
             

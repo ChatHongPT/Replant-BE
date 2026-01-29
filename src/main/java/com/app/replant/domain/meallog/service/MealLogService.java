@@ -8,6 +8,8 @@ import com.app.replant.domain.meallog.enums.MealType;
 import com.app.replant.domain.meallog.repository.MealLogRepository;
 import com.app.replant.domain.post.entity.Post;
 import com.app.replant.domain.post.repository.PostRepository;
+import com.app.replant.domain.notification.entity.Notification;
+import com.app.replant.domain.notification.repository.NotificationRepository;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
@@ -36,6 +38,7 @@ public class MealLogService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final ReantRepository reantRepository;
+    private final NotificationRepository notificationRepository;
 
     // 식사 인증 마감 시간 (분)
     private static final int MEAL_DEADLINE_MINUTES = 120;  // 2시간
@@ -46,16 +49,24 @@ public class MealLogService {
     @Transactional
     public MealLog assignMealMission(User user, MealType mealType, LocalDate date) {
         // 이미 해당 날짜/타입에 기록이 있는지 확인
-        if (mealLogRepository.existsByUserIdAndMealTypeAndMealDate(user.getId(), mealType, date)) {
-            log.debug("이미 {} {} 식사 미션이 존재합니다. userId={}", date, mealType.getDisplayName(), user.getId());
-            return null;
+        Optional<MealLog> existingMealLog = mealLogRepository.findByUserIdAndMealTypeAndMealDate(
+                user.getId(), mealType, date);
+        
+        if (existingMealLog.isPresent()) {
+            MealLog mealLog = existingMealLog.get();
+            log.info("이미 {} {} 식사 미션이 존재합니다. userId={}, mealLogId={}, status={}, assignedAt={}, deadlineAt={}", 
+                    date, mealType.getDisplayName(), user.getId(), mealLog.getId(), 
+                    mealLog.getStatus(), mealLog.getAssignedAt(), mealLog.getDeadlineAt());
+            // 기존 미션이 있으면 그것을 반환 (알림 전송을 위해)
+            return mealLog;
         }
 
         MealLog mealLog = MealLog.assign(user, mealType, date, MEAL_DEADLINE_MINUTES);
         MealLog saved = mealLogRepository.save(mealLog);
         
-        log.info("식사 미션 할당 완료: userId={}, mealType={}, mealLogId={}", 
-                user.getId(), mealType.getDisplayName(), saved.getId());
+        log.info("식사 미션 할당 완료: userId={}, mealType={}, mealLogId={}, assignedAt={}, deadlineAt={}", 
+                user.getId(), mealType.getDisplayName(), saved.getId(), 
+                saved.getAssignedAt(), saved.getDeadlineAt());
         
         return saved;
     }
@@ -68,6 +79,10 @@ public class MealLogService {
         MealLog mealLog = mealLogRepository.findById(mealLogId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
 
+        log.info("식사 미션 인증 시도: userId={}, mealLogId={}, status={}, assignedAt={}, deadlineAt={}, now={}", 
+                userId, mealLogId, mealLog.getStatus(), mealLog.getAssignedAt(), 
+                mealLog.getDeadlineAt(), LocalDateTime.now());
+
         // 소유자 확인
         if (!mealLog.isOwner(userId)) {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
@@ -75,12 +90,17 @@ public class MealLogService {
 
         // 이미 완료/실패 상태인지 확인
         if (mealLog.getStatus() != MealLogStatus.ASSIGNED) {
+            log.warn("식사 미션 인증 실패 - 이미 완료/실패 상태: userId={}, mealLogId={}, status={}", 
+                    userId, mealLogId, mealLog.getStatus());
             throw new CustomException(ErrorCode.MISSION_ALREADY_COMPLETED);
         }
 
         // 시간 초과 확인
         if (mealLog.isExpired()) {
+            log.warn("식사 미션 인증 실패 - 시간 초과: userId={}, mealLogId={}, deadlineAt={}, now={}", 
+                    userId, mealLogId, mealLog.getDeadlineAt(), LocalDateTime.now());
             mealLog.fail();
+            mealLogRepository.save(mealLog);
             return MealLogResponse.VerifyResult.builder()
                     .success(false)
                     .message("인증 시간이 초과되었습니다.")
@@ -144,6 +164,24 @@ public class MealLogService {
             log.warn("사용자 통계 업데이트 실패: userId={}, error={}", userId, e.getMessage());
         }
 
+        // 식사 미션 완료 시 관련 알림 자동 읽음 처리
+        try {
+            List<Notification> relatedNotifications = notificationRepository
+                    .findByUserIdAndReference(userId, "MEAL_LOG", mealLogId);
+            
+            for (Notification notification : relatedNotifications) {
+                if (!notification.getIsRead()) {
+                    notification.markAsRead();
+                    notificationRepository.save(notification);
+                    log.info("식사 미션 완료로 인한 알림 자동 읽음 처리: notificationId={}, mealLogId={}, userId={}", 
+                            notification.getId(), mealLogId, userId);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("식사 미션 알림 읽음 처리 실패: userId={}, mealLogId={}, error={}", 
+                    userId, mealLogId, e.getMessage());
+        }
+
         log.info("식사 인증 완료: userId={}, mealLogId={}, mealType={}", 
                 userId, mealLogId, mealLog.getMealType().getDisplayName());
 
@@ -157,15 +195,36 @@ public class MealLogService {
 
     /**
      * 현재 진행 중인 식사 미션 상태 조회
+     * 오늘 날짜의 ASSIGNED 상태 미션을 조회하거나, 없으면 오늘 날짜의 가장 최근 미션을 조회
      */
     public MealLogResponse.Status getCurrentMealMissionStatus(Long userId) {
-        Optional<MealLog> latestMission = mealLogRepository.findLatestAssignedMission(userId);
+        LocalDate today = LocalDate.now();
         
-        if (latestMission.isEmpty()) {
-            return null;
+        // 먼저 오늘 날짜의 ASSIGNED 상태 미션 조회
+        List<MealLog> todayAssignedMissions = mealLogRepository.findCurrentAssignedMissions(userId, today);
+        if (!todayAssignedMissions.isEmpty()) {
+            MealLog latestMission = todayAssignedMissions.get(0); // 가장 최근 미션
+            log.info("오늘 할당된 식사 미션 조회: userId={}, mealLogId={}, status={}, mealType={}", 
+                    userId, latestMission.getId(), latestMission.getStatus(), latestMission.getMealType());
+            return MealLogResponse.Status.from(latestMission);
         }
-
-        return MealLogResponse.Status.from(latestMission.get());
+        
+        // 오늘 날짜의 모든 미션 조회 (상태 무관)
+        List<MealLog> todayMissions = mealLogRepository.findByUserIdAndMealDateOrderByMealType(userId, today);
+        if (!todayMissions.isEmpty()) {
+            // 가장 최근에 할당된 미션 반환
+            MealLog latestMission = todayMissions.stream()
+                    .max(java.util.Comparator.comparing(MealLog::getAssignedAt))
+                    .orElse(null);
+            if (latestMission != null) {
+                log.info("오늘 날짜의 식사 미션 조회 (상태 무관): userId={}, mealLogId={}, status={}, mealType={}", 
+                        userId, latestMission.getId(), latestMission.getStatus(), latestMission.getMealType());
+                return MealLogResponse.Status.from(latestMission);
+            }
+        }
+        
+        log.info("오늘 날짜의 식사 미션 없음: userId={}", userId);
+        return null;
     }
 
     /**

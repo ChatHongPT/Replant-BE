@@ -123,6 +123,7 @@ public class UserMission {
 
     /**
      * 미션 제목 조회
+     * 돌발 미션의 경우 mission이 null일 수 있으므로, 별도 필드나 다른 방법으로 제목을 저장해야 함
      */
     public String getMissionTitle() {
         return this.mission != null ? this.mission.getTitle() : "미션";

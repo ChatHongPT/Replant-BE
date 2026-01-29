@@ -20,6 +20,7 @@ import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
+import com.app.replant.domain.notification.repository.NotificationRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -33,9 +34,12 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.app.replant.domain.notification.entity.Notification;
 
 @Service
 @RequiredArgsConstructor
@@ -51,17 +55,49 @@ public class UserMissionService {
     private final TodoListMissionRepository todoListMissionRepository;
     private final TodoListRepository todoListRepository;
     private final PostRepository postRepository;
+    private final NotificationRepository notificationRepository;
 
     @Transactional(readOnly = true)
     public Page<UserMissionResponse> getUserMissions(Long userId, Pageable pageable) {
         return userMissionRepository.findByUserIdWithFilters(userId, pageable)
-                .map(UserMissionResponse::from);
+                .map(userMission -> convertToUserMissionResponse(userMission));
+    }
+    
+    /**
+     * UserMission을 UserMissionResponse로 변환 (돌발 미션 처리 포함)
+     */
+    private UserMissionResponse convertToUserMissionResponse(UserMission userMission) {
+        return convertToUserMissionResponse(userMission, null);
+    }
+    
+    /**
+     * UserMission을 UserMissionResponse로 변환 (돌발 미션 처리 포함, completedAt 포함)
+     */
+    private UserMissionResponse convertToUserMissionResponse(UserMission userMission, LocalDateTime completedAt) {
+        // 돌발 미션이고 mission이 null인 경우 spontaneous_mission 정보 조회
+        if (userMission.isSpontaneousMission() && userMission.getMission() == null) {
+            // 기상 미션인지 식사 미션인지 구분하기 어려우므로, 
+            // 일단 기본적인 UserMissionResponse를 생성하고 missionType만 설정
+            return UserMissionResponse.builder()
+                    .id(userMission.getId())
+                    .missionType("OFFICIAL")
+                    .mission(null)  // 돌발 미션은 mission이 null
+                    .customMission(null)
+                    .assignedAt(userMission.getAssignedAt())
+                    .dueDate(userMission.getDueDate())
+                    .status(userMission.getStatus())
+                    .completedAt(completedAt)
+                    .build();
+        }
+        
+        // 일반 미션의 경우 기존 로직 사용
+        return UserMissionResponse.from(userMission, completedAt);
     }
 
     public UserMissionResponse getUserMission(Long userMissionId, Long userId) {
         UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
-        return UserMissionResponse.from(userMission);
+        return convertToUserMissionResponse(userMission);
     }
 
     /**
@@ -92,9 +128,12 @@ public class UserMissionService {
      */
     @Transactional(readOnly = true)
     public WakeUpMissionStatusResponse getCurrentWakeUpMissionStatus(Long userId) {
+        log.info("기상 미션 상태 조회 시작: userId={}", userId);
+        
         // 오늘 날짜에 할당된 모든 미션 조회 (페이지 크기 제한 없이)
         LocalDate today = LocalDate.now();
         List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
+        log.info("오늘 할당된 미션 수: userId={}, count={}", userId, todayMissions.size());
         
         // 돌발 미션 중 가장 최근 ASSIGNED 미션 조회 (기상 미션은 제목에 의존하지 않음)
         // 식사 미션은 postId로 인증하므로, postId 없이 인증하는 돌발 미션 = 기상 미션
@@ -105,31 +144,70 @@ public class UserMissionService {
                 .max(java.util.Comparator.comparing(UserMission::getAssignedAt));
         
         if (wakeUpMission.isEmpty()) {
+            log.info("기상 미션 없음: userId={}", userId);
             return null;
         }
         
         UserMission userMission = wakeUpMission.get();
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime assignedAt = userMission.getAssignedAt();
-        Duration elapsed = Duration.between(assignedAt, now);
-        long elapsedSeconds = elapsed.toSeconds();
-        long remainingSeconds = Math.max(0, 600 - elapsedSeconds); // 10분 = 600초
+        log.info("기상 미션 찾음: userId={}, userMissionId={}, assignedAt={}", 
+                userId, userMission.getId(), userMission.getAssignedAt());
         
-        boolean canVerify = elapsedSeconds < 600; // 10분 미만이면 인증 가능
+        User user = userMission.getUser();
+        String wakeTimeStr = user.getWakeTime();
+        
+        if (wakeTimeStr == null || wakeTimeStr.isEmpty()) {
+            return null;
+        }
+        
+        // 사용자 설정 기상 시간 파싱
+        LocalTime wakeTime;
+        try {
+            wakeTime = LocalTime.parse(wakeTimeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
+        } catch (Exception e) {
+            log.error("기상 시간 파싱 실패: wakeTimeStr={}, userId={}", wakeTimeStr, user.getId(), e);
+            return null;
+        }
+        
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime wakeDateTime = LocalDate.now().atTime(wakeTime);
+        LocalDateTime deadline = wakeDateTime.plusMinutes(10);
+        
+        // 디버깅 로그 추가 (INFO 레벨로 변경하여 항상 출력)
+        log.info("기상 미션 상태 조회: userId={}, wakeTimeStr={}, wakeDateTime={}, now={}, deadline={}, assignedAt={}", 
+                user.getId(), wakeTimeStr, wakeDateTime, now, deadline, userMission.getAssignedAt());
+        
+        // 기상 시간 이전인지 확인
+        boolean isBeforeWakeTime = now.isBefore(wakeDateTime);
+        // 마감 시간 초과 여부 확인 (초과: >, 같거나 이전: <=)
+        boolean isExpired = now.isAfter(deadline);
+        
+        long remainingSeconds = Math.max(0, Duration.between(now, deadline).toSeconds());
+        
+        boolean canVerify = !isBeforeWakeTime && !isExpired;
         String message;
         
-        if (!canVerify) {
-            message = "인증 시간(10분)이 지났습니다.";
+        if (isBeforeWakeTime) {
+            message = "기상 시간 이전에는 인증할 수 없습니다.";
+            log.info("기상 시간 이전: userId={}, wakeDateTime={}, now={}, 차이={}초", 
+                    user.getId(), wakeDateTime, now, Duration.between(now, wakeDateTime).toSeconds());
+        } else if (isExpired) {
+            message = "인증 시간(기상 시간 + 10분)이 지났습니다.";
+            long elapsedMinutes = Duration.between(deadline, now).toMinutes();
+            log.info("시간 초과: userId={}, deadline={}, now={}, elapsedMinutes={}", 
+                    user.getId(), deadline, now, elapsedMinutes);
         } else if (remainingSeconds > 0) {
             long remainingMinutes = remainingSeconds / 60;
             message = String.format("인증 가능합니다. 남은 시간: %d분", remainingMinutes);
+            log.info("인증 가능: userId={}, remainingSeconds={}, remainingMinutes={}", 
+                    user.getId(), remainingSeconds, remainingMinutes);
         } else {
             message = "인증 가능합니다.";
+            log.info("인증 가능 (남은 시간 0초): userId={}", user.getId());
         }
         
         return WakeUpMissionStatusResponse.from(
                 userMission.getId(),
-                assignedAt,
+                userMission.getAssignedAt(),
                 remainingSeconds,
                 canVerify,
                 message
@@ -311,6 +389,21 @@ public class UserMissionService {
             }
         }
 
+        // 미션 완료 시 관련 알림 자동 읽음 처리 (돌발 미션 알림 등)
+        Long userId = userMission.getUser().getId();
+        Long userMissionId = userMission.getId();
+        List<Notification> relatedNotifications = notificationRepository
+                .findByUserIdAndReference(userId, "USER_MISSION", userMissionId);
+        
+        for (Notification notification : relatedNotifications) {
+            if (!notification.getIsRead()) {
+                notification.markAsRead();
+                notificationRepository.save(notification);
+                log.info("미션 완료로 인한 알림 자동 읽음 처리: notificationId={}, userMissionId={}, userId={}", 
+                        notification.getId(), userMissionId, userId);
+            }
+        }
+
         log.info("Social Verification Completed: userMissionId={}, userId={}", 
                 userMission.getId(), userMission.getUser().getId());
     }
@@ -380,7 +473,7 @@ public class UserMissionService {
                     }
                     
                     // UserMissionResponse 생성 (completedAt 포함)
-                    return UserMissionResponse.from(userMission, completedAt);
+                    return convertToUserMissionResponse(userMission, completedAt);
                 });
     }
 
@@ -512,10 +605,14 @@ public class UserMissionService {
                     .build();
         }
 
-        VerifyMissionResponse.BadgeInfo badgeInfo = VerifyMissionResponse.BadgeInfo.builder()
-                .id(badge.getId())
-                .expiresAt(badge.getExpiresAt())
-                .build();
+        // 배지 정보 생성 (돌발 미션은 배지가 없을 수 있음)
+        VerifyMissionResponse.BadgeInfo badgeInfo = null;
+        if (badge != null) {
+            badgeInfo = VerifyMissionResponse.BadgeInfo.builder()
+                    .id(badge.getId())
+                    .expiresAt(badge.getExpiresAt())
+                    .build();
+        }
 
         VerifyMissionResponse.RewardInfo rewardInfo = VerifyMissionResponse.RewardInfo.builder()
                 .expEarned(expReward)
@@ -663,21 +760,55 @@ public class UserMissionService {
     }
 
     /**
-     * 기상 미션 인증 (시간 제한: 10분)
+     * 기상 미션 인증 (시간 제한: 사용자 설정 wake_time + 10분)
      */
     private VerifyMissionResponse verifyWakeUpMission(UserMission userMission, LocalDateTime now) {
-        // 할당 시간으로부터 10분 경과 여부 확인
-        LocalDateTime assignedAt = userMission.getAssignedAt();
-        Duration elapsed = Duration.between(assignedAt, now);
+        User user = userMission.getUser();
+        String wakeTimeStr = user.getWakeTime();
         
-        // 정확히 10분(600초) 이상 경과했는지 확인
-        // 10분 0초는 아직 가능, 10분 1초부터 실패
-        if (elapsed.toSeconds() >= 600) {
-            // 10분 초과 시 실패 처리
+        if (wakeTimeStr == null || wakeTimeStr.isEmpty()) {
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
+                    "사용자의 기상 시간이 설정되지 않았습니다.");
+        }
+        
+        // 사용자 설정 기상 시간 파싱
+        LocalTime wakeTime;
+        try {
+            // 다양한 형식 지원 (HH:mm, H:mm 등)
+            wakeTime = LocalTime.parse(wakeTimeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
+        } catch (Exception e) {
+            log.error("기상 시간 파싱 실패: wakeTimeStr={}, userId={}", wakeTimeStr, user.getId(), e);
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
+                    "기상 시간 형식이 올바르지 않습니다.");
+        }
+        
+        // 오늘 날짜의 기상 시간 생성
+        LocalDateTime wakeDateTime = LocalDate.now().atTime(wakeTime);
+        
+        // 기상 시간 + 10분이 마감 시간
+        LocalDateTime deadline = wakeDateTime.plusMinutes(10);
+        
+        log.debug("기상 미션 인증 시간 체크: userId={}, wakeTime={}, wakeDateTime={}, now={}, deadline={}", 
+                user.getId(), wakeTimeStr, wakeDateTime, now, deadline);
+        
+        // 기상 시간 이전에는 인증 불가
+        if (now.isBefore(wakeDateTime)) {
+            log.warn("기상 시간 이전 인증 시도: userId={}, wakeDateTime={}, now={}", 
+                    user.getId(), wakeDateTime, now);
+            throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
+                    "기상 시간 이전에는 인증할 수 없습니다.");
+        }
+        
+        // 현재 시간이 마감 시간을 초과했는지 확인 (초과: >, 같거나 이전: <=)
+        if (now.isAfter(deadline)) {
+            Duration elapsed = Duration.between(wakeDateTime, now);
+            log.warn("기상 미션 시간 초과: userId={}, wakeDateTime={}, deadline={}, now={}, elapsedMinutes={}", 
+                    user.getId(), wakeDateTime, deadline, now, elapsed.toMinutes());
+            // 시간 초과 시 실패 처리
             userMission.fail();
             userMissionRepository.save(userMission);
             throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
-                    "기상 미션 인증 시간(10분)이 초과되었습니다.");
+                    "기상 미션 인증 시간(기상 시간 + 10분)이 초과되었습니다.");
         }
 
         // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)
@@ -693,8 +824,9 @@ public class UserMissionService {
                 .build();
         verificationRepository.save(verification);
 
-        log.info("기상 미션 인증 완료: userMissionId={}, userId={}, elapsedMinutes={}", 
-                userMission.getId(), userMission.getUser().getId(), elapsed.toMinutes());
+        Duration elapsed = Duration.between(wakeDateTime, now);
+        log.info("기상 미션 인증 완료: userMissionId={}, userId={}, wakeTime={}, elapsedMinutes={}", 
+                userMission.getId(), user.getId(), wakeTimeStr, elapsed.toMinutes());
 
         // 돌발 미션은 배지 없음
         return buildVerifyResponse(userMission, verification, expReward, null);
@@ -702,21 +834,73 @@ public class UserMissionService {
 
     /**
      * 식사 미션 인증 (게시글 작성)
-     * 설정 시간 + 2시간 이내에만 인증 가능
+     * 사용자 설정 식사 시간 + 2시간 이내에만 인증 가능
      */
     private VerifyMissionResponse verifyMealMission(UserMission userMission, Long postId, 
                                                     Long userId, LocalDateTime now) {
-        // 시간 제한 체크 (할당 시간 + 2시간)
-        LocalDateTime assignedAt = userMission.getAssignedAt();
-        Duration elapsed = Duration.between(assignedAt, now);
-        long MEAL_DEADLINE_MINUTES = 120;  // 2시간
+        User user = userMission.getUser();
+        Mission mission = userMission.getMission();
         
-        if (elapsed.toMinutes() > MEAL_DEADLINE_MINUTES) {
+        if (mission == null) {
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
+                    "미션 정보를 찾을 수 없습니다.");
+        }
+        
+        // 미션 제목으로 식사 타입 구분
+        String missionTitle = mission.getTitle();
+        String mealTimeStr = null;
+        String mealType = null;
+        
+        if (missionTitle.contains("아침")) {
+            mealTimeStr = user.getBreakfastTime();
+            mealType = "아침";
+        } else if (missionTitle.contains("점심")) {
+            mealTimeStr = user.getLunchTime();
+            mealType = "점심";
+        } else if (missionTitle.contains("저녁")) {
+            mealTimeStr = user.getDinnerTime();
+            mealType = "저녁";
+        } else {
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
+                    "식사 미션 타입을 확인할 수 없습니다.");
+        }
+        
+        if (mealTimeStr == null || mealTimeStr.isEmpty()) {
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
+                    String.format("사용자의 %s 식사 시간이 설정되지 않았습니다.", mealType));
+        }
+        
+        // 사용자 설정 식사 시간 파싱
+        LocalTime mealTime;
+        try {
+            // 다양한 형식 지원 (HH:mm, H:mm 등)
+            mealTime = LocalTime.parse(mealTimeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
+        } catch (Exception e) {
+            log.error("식사 시간 파싱 실패: mealTimeStr={}, userId={}, mealType={}", 
+                    mealTimeStr, user.getId(), mealType, e);
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
+                    String.format("%s 식사 시간 형식이 올바르지 않습니다.", mealType));
+        }
+        
+        // 오늘 날짜의 식사 시간 생성
+        LocalDateTime mealDateTime = LocalDate.now().atTime(mealTime);
+        
+        // 식사 시간 이전에는 인증 불가
+        if (now.isBefore(mealDateTime)) {
+            throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
+                    String.format("%s 식사 시간 이전에는 인증할 수 없습니다.", mealType));
+        }
+        
+        // 식사 시간 + 2시간이 마감 시간
+        LocalDateTime deadline = mealDateTime.plusHours(2);
+        
+        // 현재 시간이 마감 시간을 초과했는지 확인
+        if (now.isAfter(deadline)) {
             // 시간 초과 - 미션 실패 처리
             userMission.updateStatus(UserMissionStatus.FAILED);
             userMissionRepository.save(userMission);
             throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
-                    "식사 미션 인증 시간(2시간)이 초과되었습니다.");
+                    String.format("%s 식사 미션 인증 시간(식사 시간 + 2시간)이 초과되었습니다.", mealType));
         }
 
         // 게시글 조회 및 소유자 확인
@@ -741,8 +925,9 @@ public class UserMissionService {
                 .build();
         verificationRepository.save(verification);
 
-        log.info("식사 미션 인증 완료: userMissionId={}, userId={}, postId={}", 
-                userMission.getId(), userId, postId);
+        Duration elapsed = Duration.between(mealDateTime, now);
+        log.info("식사 미션 인증 완료: userMissionId={}, userId={}, mealType={}, mealTime={}, elapsedMinutes={}, postId={}", 
+                userMission.getId(), user.getId(), mealType, mealTimeStr, elapsed.toMinutes(), postId);
 
         // 돌발 미션은 배지 없음
         return buildVerifyResponse(userMission, verification, expReward, null);
