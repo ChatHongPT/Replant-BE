@@ -226,6 +226,28 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV38Migration(conn);
             log.info("V38 마이그레이션 완료");
 
+            // V39: user.preferred_mission_category 컬럼 추가 (필수 미션용 선호 카테고리)
+            if (!columnExists(stmt, "user", "preferred_mission_category")) {
+                log.info("V39 마이그레이션 실행 중: user.preferred_mission_category 컬럼 추가...");
+                executeV39Migration(conn);
+                log.info("V39 마이그레이션 완료");
+            } else {
+                log.info("V39 마이그레이션 스킵 (이미 적용됨)");
+            }
+
+            // V40: preferred_mission_category 단일 → preferred_mission_categories 다중 (TEXT JSON 배열)
+            if (columnExists(stmt, "user", "preferred_mission_category") && !columnExists(stmt, "user", "preferred_mission_categories")) {
+                log.info("V40 마이그레이션 실행 중: user 선호 카테고리 다중 선택 전환...");
+                executeV40Migration(conn);
+                log.info("V40 마이그레이션 완료");
+            } else if (!columnExists(stmt, "user", "preferred_mission_categories")) {
+                log.info("V40 마이그레이션 실행 중: user.preferred_mission_categories 컬럼 추가...");
+                executeV40MigrationAddOnly(conn);
+                log.info("V40 마이그레이션 완료");
+            } else {
+                log.info("V40 마이그레이션 스킵 (이미 적용됨)");
+            }
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -1110,6 +1132,44 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 "WHERE `verification_type` IN ('GPS', 'TIME')"
             );
             log.info("V38 마이그레이션: {}개 미션 verification_type → COMMUNITY 변경 완료", updated);
+        }
+    }
+
+    /**
+     * V39: user 테이블에 preferred_mission_category 컬럼 추가 (필수 미션용 선호 카테고리)
+     */
+    private void executeV39Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            executeIgnore(stmt,
+                "ALTER TABLE `user` ADD COLUMN `preferred_mission_category` VARCHAR(20) NULL");
+            log.info("V39 마이그레이션: user.preferred_mission_category 컬럼 추가 완료");
+        }
+    }
+
+    /**
+     * V40: preferred_mission_category 단일 컬럼을 preferred_mission_categories(TEXT)로 이전 후 기존 컬럼 삭제
+     */
+    private void executeV40Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            executeIgnore(stmt,
+                "ALTER TABLE `user` ADD COLUMN `preferred_mission_categories` TEXT NULL");
+            executeIgnore(stmt,
+                "UPDATE `user` SET `preferred_mission_categories` = `preferred_mission_category` " +
+                "WHERE `preferred_mission_category` IS NOT NULL AND `preferred_mission_category` != ''");
+            executeIgnore(stmt,
+                "ALTER TABLE `user` DROP COLUMN `preferred_mission_category`");
+            log.info("V40 마이그레이션: user 선호 카테고리 다중 컬럼 전환 완료");
+        }
+    }
+
+    /**
+     * V40 대안: preferred_mission_category가 없는 DB에 preferred_mission_categories만 추가
+     */
+    private void executeV40MigrationAddOnly(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            executeIgnore(stmt,
+                "ALTER TABLE `user` ADD COLUMN `preferred_mission_categories` TEXT NULL");
+            log.info("V40 마이그레이션: user.preferred_mission_categories 컬럼 추가 완료");
         }
     }
 }

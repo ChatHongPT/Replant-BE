@@ -380,6 +380,22 @@ public class MissionRepositoryCustomImpl implements MissionRepositoryCustom {
     }
 
     @Override
+    public List<Mission> findRandomOfficialNonChallengeMissionsByCategory(int count, MissionCategory category) {
+        if (category == null) {
+            return findRandomOfficialNonChallengeMissions(count);
+        }
+        String sql = "SELECT * FROM mission m WHERE m.mission_type = 'OFFICIAL' " +
+                    "AND m.is_active = true AND m.category = :category " +
+                    "ORDER BY RAND() LIMIT :count";
+        Query query = entityManager.createNativeQuery(sql, Mission.class);
+        query.setParameter("category", category.name());
+        query.setParameter("count", count);
+        @SuppressWarnings("unchecked")
+        List<Mission> results = query.getResultList();
+        return results;
+    }
+
+    @Override
     public Optional<Mission> findRandomOfficialNonChallengeMissionExcluding(List<Long> excludeMissionIds) {
         // Native query는 EntityManager 사용
         StringBuilder sql = new StringBuilder(
@@ -408,6 +424,95 @@ public class MissionRepositoryCustomImpl implements MissionRepositoryCustom {
             }
         }
         
+        @SuppressWarnings("unchecked")
+        List<Mission> results = query.getResultList();
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    @Override
+    public Optional<Mission> findRandomOfficialNonChallengeMissionExcludingByCategory(List<Long> excludeMissionIds, MissionCategory category) {
+        if (category == null) {
+            return findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds);
+        }
+        StringBuilder sql = new StringBuilder(
+            "SELECT * FROM mission m WHERE m.mission_type = 'OFFICIAL' " +
+            "AND m.is_active = true AND m.category = :category "
+        );
+        if (excludeMissionIds != null && !excludeMissionIds.isEmpty()) {
+            sql.append("AND m.id NOT IN (");
+            for (int i = 0; i < excludeMissionIds.size(); i++) {
+                if (i > 0) sql.append(",");
+                sql.append(":excludeId").append(i);
+            }
+            sql.append(") ");
+        }
+        sql.append("ORDER BY RAND() LIMIT 1");
+        Query query = entityManager.createNativeQuery(sql.toString(), Mission.class);
+        query.setParameter("category", category.name());
+        if (excludeMissionIds != null && !excludeMissionIds.isEmpty()) {
+            for (int i = 0; i < excludeMissionIds.size(); i++) {
+                query.setParameter("excludeId" + i, excludeMissionIds.get(i));
+            }
+        }
+        @SuppressWarnings("unchecked")
+        List<Mission> results = query.getResultList();
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+    @Override
+    public List<Mission> findRandomOfficialNonChallengeMissionsByCategories(int count, List<MissionCategory> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return findRandomOfficialNonChallengeMissions(count);
+        }
+        StringBuilder sql = new StringBuilder(
+            "SELECT * FROM mission m WHERE m.mission_type = 'OFFICIAL' AND m.is_active = true AND m.category IN ("
+        );
+        for (int i = 0; i < categories.size(); i++) {
+            if (i > 0) sql.append(",");
+            sql.append(":cat").append(i);
+        }
+        sql.append(") ORDER BY RAND() LIMIT :count");
+        Query query = entityManager.createNativeQuery(sql.toString(), Mission.class);
+        for (int i = 0; i < categories.size(); i++) {
+            query.setParameter("cat" + i, categories.get(i).name());
+        }
+        query.setParameter("count", count);
+        @SuppressWarnings("unchecked")
+        List<Mission> results = query.getResultList();
+        return results;
+    }
+
+    @Override
+    public Optional<Mission> findRandomOfficialNonChallengeMissionExcludingByCategories(List<Long> excludeMissionIds, List<MissionCategory> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds);
+        }
+        StringBuilder sql = new StringBuilder(
+            "SELECT * FROM mission m WHERE m.mission_type = 'OFFICIAL' AND m.is_active = true AND m.category IN ("
+        );
+        for (int i = 0; i < categories.size(); i++) {
+            if (i > 0) sql.append(",");
+            sql.append(":cat").append(i);
+        }
+        sql.append(") ");
+        if (excludeMissionIds != null && !excludeMissionIds.isEmpty()) {
+            sql.append("AND m.id NOT IN (");
+            for (int i = 0; i < excludeMissionIds.size(); i++) {
+                if (i > 0) sql.append(",");
+                sql.append(":excludeId").append(i);
+            }
+            sql.append(") ");
+        }
+        sql.append("ORDER BY RAND() LIMIT 1");
+        Query query = entityManager.createNativeQuery(sql.toString(), Mission.class);
+        for (int i = 0; i < categories.size(); i++) {
+            query.setParameter("cat" + i, categories.get(i).name());
+        }
+        if (excludeMissionIds != null && !excludeMissionIds.isEmpty()) {
+            for (int i = 0; i < excludeMissionIds.size(); i++) {
+                query.setParameter("excludeId" + i, excludeMissionIds.get(i));
+            }
+        }
         @SuppressWarnings("unchecked")
         List<Mission> results = query.getResultList();
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));

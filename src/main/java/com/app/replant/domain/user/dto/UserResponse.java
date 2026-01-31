@@ -1,5 +1,6 @@
 package com.app.replant.domain.user.dto;
 
+import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.PlaceType;
 import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.entity.User;
@@ -10,6 +11,7 @@ import lombok.Getter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -27,6 +29,7 @@ public class UserResponse {
     private WorryType worryType;
     private String region;
     private PlaceType preferredPlaceType;
+    private List<MissionCategory> preferredMissionCategories;
 
     public static UserResponse from(User user) {
         return UserResponse.builder()
@@ -42,6 +45,7 @@ public class UserResponse {
                 .worryType(user.getWorryType())
                 .region(user.getRegion() != null ? user.getRegion().name() : null)
                 .preferredPlaceType(user.getPreferredPlaceType())
+                .preferredMissionCategories(user.getPreferredMissionCategories())
                 .build();
     }
 }

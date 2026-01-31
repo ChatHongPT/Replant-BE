@@ -1,6 +1,7 @@
 package com.app.replant.domain.missionset.service;
 
 import com.app.replant.domain.mission.entity.Mission;
+import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.missionset.dto.TodoListDto;
 import com.app.replant.domain.missionset.entity.TodoList;
@@ -28,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,11 +51,35 @@ public class TodoListService {
 
         /**
          * 투두리스트 초기화 - 랜덤 공식 미션 3개 조회
+         * 사용자가 선호 카테고리를 선택한 경우 해당 카테고리 미션만 조회
          */
         public TodoListDto.InitResponse initTodoList(Long userId) {
-                // 랜덤 공식 미션 3개 조회
-                List<Mission> randomMissions = missionRepository
-                                .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
+                User user = userRepository.findById(userId)
+                                .orElse(null);
+                List<MissionCategory> preferredCategories = user != null ? user.getPreferredMissionCategories() : null;
+                boolean useCategories = preferredCategories != null && !preferredCategories.isEmpty();
+
+                List<Mission> randomMissions;
+                if (useCategories) {
+                        randomMissions = missionRepository
+                                        .findRandomOfficialNonChallengeMissionsByCategories(RANDOM_OFFICIAL_COUNT, preferredCategories);
+                        // 해당 카테고리 미션이 3개 미만이면 전체 공식 미션으로 보완
+                        if (randomMissions.size() < RANDOM_OFFICIAL_COUNT) {
+                                List<Mission> fallback = missionRepository
+                                                .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
+                                Set<Long> haveIds = randomMissions.stream().map(Mission::getId).collect(Collectors.toSet());
+                                for (Mission m : fallback) {
+                                        if (haveIds.size() >= RANDOM_OFFICIAL_COUNT) break;
+                                        if (!haveIds.contains(m.getId())) {
+                                                randomMissions.add(m);
+                                                haveIds.add(m.getId());
+                                        }
+                                }
+                        }
+                } else {
+                        randomMissions = missionRepository
+                                        .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
+                }
 
                 if (randomMissions.size() < RANDOM_OFFICIAL_COUNT) {
                         log.warn("공식 미션이 {}개 미만입니다. 현재: {}개", RANDOM_OFFICIAL_COUNT, randomMissions.size());
@@ -60,6 +87,7 @@ public class TodoListService {
 
                 return TodoListDto.InitResponse.builder()
                                 .randomMissions(randomMissions.stream()
+                                                .limit(RANDOM_OFFICIAL_COUNT)
                                                 .map(TodoListDto.MissionSimpleResponse::from)
                                                 .collect(Collectors.toList()))
                                 .build();
@@ -67,13 +95,21 @@ public class TodoListService {
 
         /**
          * 랜덤 미션 리롤 - 기존 미션을 제외하고 새로운 랜덤 미션 1개 조회
+         * 사용자 선호 카테고리가 있으면 해당 카테고리 미션만 대상 (없으면 전체에서 fallback)
          */
         public TodoListDto.MissionSimpleResponse rerollRandomMission(Long userId, List<Long> excludeMissionIds) {
-                Mission newMission = missionRepository
-                                .findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND, 
-                                                "교체할 수 있는 공식 미션이 없습니다."));
-                
+                User user = userRepository.findById(userId).orElse(null);
+                List<MissionCategory> preferredCategories = user != null ? user.getPreferredMissionCategories() : null;
+                boolean useCategories = preferredCategories != null && !preferredCategories.isEmpty();
+
+                Optional<Mission> opt = useCategories
+                                ? missionRepository.findRandomOfficialNonChallengeMissionExcludingByCategories(excludeMissionIds, preferredCategories)
+                                : missionRepository.findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds);
+                Mission newMission = opt.orElseGet(() ->
+                                missionRepository.findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds)
+                                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND,
+                                                                "교체할 수 있는 공식 미션이 없습니다.")));
+
                 return TodoListDto.MissionSimpleResponse.from(newMission);
         }
 

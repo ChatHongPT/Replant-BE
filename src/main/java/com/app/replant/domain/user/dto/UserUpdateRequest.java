@@ -1,5 +1,6 @@
 package com.app.replant.domain.user.dto;
 
+import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.PlaceType;
 import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.enums.Gender;
@@ -7,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @NoArgsConstructor
@@ -24,4 +26,6 @@ public class UserUpdateRequest {
     private String region;
     // 선호 장소: HOME(집), OUTDOOR(야외), INDOOR(실내)
     private PlaceType preferredPlaceType;
+    // 필수 미션용 선호 카테고리 (다중 선택)
+    private List<MissionCategory> preferredMissionCategories;
 }

@@ -69,7 +69,8 @@ public class UserService {
                 // 사용자 맞춤 정보
                 request.getWorryType(),
                 region,
-                request.getPreferredPlaceType()
+                request.getPreferredPlaceType(),
+                request.getPreferredMissionCategories()
         );
         return user;
     }

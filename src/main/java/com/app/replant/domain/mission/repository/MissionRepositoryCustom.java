@@ -118,10 +118,30 @@ public interface MissionRepositoryCustom {
     List<Mission> findRandomOfficialNonChallengeMissions(int count);
 
     /**
+     * 랜덤 공식 미션 조회 (투두리스트용, 특정 카테고리만)
+     */
+    List<Mission> findRandomOfficialNonChallengeMissionsByCategory(int count, MissionCategory category);
+
+    /**
      * 랜덤 공식 미션 1개 조회 (리롤용, 특정 미션 ID 제외)
      * Native query는 EntityManager를 사용하여 구현
      */
     Optional<Mission> findRandomOfficialNonChallengeMissionExcluding(List<Long> excludeMissionIds);
+
+    /**
+     * 랜덤 공식 미션 1개 조회 (리롤용, 특정 미션 ID 제외, 특정 카테고리만)
+     */
+    Optional<Mission> findRandomOfficialNonChallengeMissionExcludingByCategory(List<Long> excludeMissionIds, MissionCategory category);
+
+    /**
+     * 랜덤 공식 미션 조회 (투두리스트용, 여러 카테고리 중 하나)
+     */
+    List<Mission> findRandomOfficialNonChallengeMissionsByCategories(int count, List<MissionCategory> categories);
+
+    /**
+     * 랜덤 공식 미션 1개 조회 (리롤용, 특정 미션 ID 제외, 여러 카테고리 중 하나)
+     */
+    Optional<Mission> findRandomOfficialNonChallengeMissionExcludingByCategories(List<Long> excludeMissionIds, List<MissionCategory> categories);
 
     List<Mission> findNonChallengeCustomMissionsByCreator(Long creatorId);
 

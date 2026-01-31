@@ -1,6 +1,8 @@
 package com.app.replant.domain.user.entity;
 
 import com.app.replant.global.common.BaseEntity;
+import com.app.replant.global.converter.MissionCategoryListConverter;
+import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.PlaceType;
 import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.enums.Gender;
@@ -101,6 +103,11 @@ public class User extends BaseEntity {
     @Column(name = "preferred_place_type", length = 10)
     private PlaceType preferredPlaceType;
 
+    // 필수 미션용 선호 카테고리 (다중 선택, 해당 카테고리 미션만 필수로 할당)
+    @Convert(converter = MissionCategoryListConverter.class)
+    @Column(name = "preferred_mission_categories", columnDefinition = "TEXT")
+    private List<MissionCategory> preferredMissionCategories;
+
     // FCM 토큰 (푸시 알림용)
     @Column(name = "fcm_token", length = 500)
     private String fcmToken;
@@ -172,7 +179,8 @@ public class User extends BaseEntity {
     }
 
     public void updateProfile(String nickname, LocalDate birthDate, Gender gender, String profileImg,
-                              WorryType worryType, MetropolitanArea region, PlaceType preferredPlaceType) {
+                              WorryType worryType, MetropolitanArea region, PlaceType preferredPlaceType,
+                              List<MissionCategory> preferredMissionCategories) {
         if (nickname != null) {
             this.nickname = nickname;
         }
@@ -194,6 +202,9 @@ public class User extends BaseEntity {
         }
         if (preferredPlaceType != null) {
             this.preferredPlaceType = preferredPlaceType;
+        }
+        if (preferredMissionCategories != null) {
+            this.preferredMissionCategories = preferredMissionCategories;
         }
     }
 
