@@ -248,6 +248,22 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V40 마이그레이션 스킵 (이미 적용됨)");
             }
 
+            // V41 마이그레이션: todolist_like 테이블 생성, todolist_review 제거 (리뷰 → 좋아요 전환)
+            if (!tableExists(stmt, "todolist_like")) {
+                log.info("V41 마이그레이션 실행 중: todolist_like 테이블 생성...");
+                executeV41Migration(conn);
+                log.info("V41 마이그레이션 완료");
+            } else {
+                log.info("V41 마이그레이션 스킵 (이미 적용됨)");
+            }
+
+            // V41 후처리: todolist_review가 아직 남아 있으면 이관 후 DROP (like는 이미 있는 경우 대비)
+            if (tableExists(stmt, "todolist_review")) {
+                log.info("V41 후처리 실행: todolist_review → todolist_like 이관 후 todolist_review 삭제...");
+                executeV41ReviewToLikeMigration(conn);
+                log.info("V41 후처리 완료");
+            }
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -1170,6 +1186,55 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeIgnore(stmt,
                 "ALTER TABLE `user` ADD COLUMN `preferred_mission_categories` TEXT NULL");
             log.info("V40 마이그레이션: user.preferred_mission_categories 컬럼 추가 완료");
+        }
+    }
+
+    /**
+     * V41 마이그레이션: todolist_like 테이블 생성, todolist_review 데이터 이관 후 삭제 (리뷰 → 좋아요 전환)
+     */
+    private void executeV41Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(
+                "CREATE TABLE `todolist_like` (" +
+                "  `id` BIGINT NOT NULL AUTO_INCREMENT," +
+                "  `todolist_id` BIGINT NOT NULL," +
+                "  `user_id` BIGINT NOT NULL," +
+                "  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "  PRIMARY KEY (`id`)," +
+                "  UNIQUE KEY `uk_todolist_like_todolist_user` (`todolist_id`, `user_id`)," +
+                "  INDEX `idx_todolist_like_todolist` (`todolist_id`)," +
+                "  INDEX `idx_todolist_like_user` (`user_id`)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+            log.info("V41 마이그레이션: todolist_like 테이블 생성 완료");
+
+            if (tableExists(stmt, "todolist_review")) {
+                executeIgnore(stmt,
+                    "INSERT INTO `todolist_like` (`todolist_id`, `user_id`, `created_at`) " +
+                    "SELECT `todolist_id`, `user_id`, `created_at` FROM `todolist_review`");
+                log.info("V41 마이그레이션: todolist_review → todolist_like 데이터 이관 완료");
+                stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
+                stmt.execute("DROP TABLE IF EXISTS `todolist_review`");
+                stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
+                log.info("V41 마이그레이션: todolist_review 테이블 삭제 완료");
+            }
+        }
+    }
+
+    /**
+     * V41 후처리: todolist_review가 남아 있는 경우(like 테이블은 이미 있음) 이관 후 DROP
+     * INSERT IGNORE 로 중복 시 스킵하여 안전하게 이관
+     */
+    private void executeV41ReviewToLikeMigration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            executeIgnore(stmt,
+                "INSERT IGNORE INTO `todolist_like` (`todolist_id`, `user_id`, `created_at`) " +
+                "SELECT `todolist_id`, `user_id`, `created_at` FROM `todolist_review`");
+            log.info("V41 후처리: todolist_review → todolist_like 데이터 이관 완료");
+            stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
+            stmt.execute("DROP TABLE IF EXISTS `todolist_review`");
+            stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
+            log.info("V41 후처리: todolist_review 테이블 삭제 완료");
         }
     }
 }

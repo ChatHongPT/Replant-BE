@@ -5,13 +5,13 @@ import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.missionset.dto.TodoListDto;
 import com.app.replant.domain.missionset.entity.TodoList;
+import com.app.replant.domain.missionset.entity.TodoListLike;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
-import com.app.replant.domain.missionset.entity.TodoListReview;
+import com.app.replant.domain.missionset.repository.TodoListLikeRepository;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
-import com.app.replant.domain.missionset.repository.TodoListReviewRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
@@ -41,7 +41,7 @@ public class TodoListService {
 
         private final TodoListRepository todoListRepository;
         private final TodoListMissionRepository todoListMissionRepository;
-        private final TodoListReviewRepository reviewRepository;
+        private final TodoListLikeRepository likeRepository;
         private final MissionRepository missionRepository;
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
@@ -328,11 +328,8 @@ public class TodoListService {
                 return todoListRepository.findPublicTodoLists(pageable, sortBy)
                                 .map(todoList -> {
                                         TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
-                                        // 평균 별점 계산
-                                        Double averageRating = reviewRepository.calculateAverageRating(todoList);
-                                        // 리뷰 개수 계산
-                                        long reviewCount = reviewRepository.countByTodoList(todoList);
-                                        response = TodoListDto.SimpleResponse.builder()
+                                        int likeCount = (int) likeRepository.countByTodoList(todoList);
+                                        return TodoListDto.SimpleResponse.builder()
                                                         .id(response.getId())
                                                         .title(response.getTitle())
                                                         .description(response.getDescription())
@@ -344,11 +341,8 @@ public class TodoListService {
                                                         .createdAt(response.getCreatedAt())
                                                         .creatorId(response.getCreatorId())
                                                         .creatorNickname(response.getCreatorNickname())
-                                                        .averageRating(averageRating != null ? averageRating : 0.0)
-                                                        .addedCount((int) reviewCount) // 리뷰 수를 addedCount로 설정
-                                                        .reviewCount((int) reviewCount) // 리뷰 수 (별점 매긴 사람 수)
+                                                        .likeCount(likeCount)
                                                         .build();
-                                        return response;
                                 });
         }
 
@@ -363,11 +357,8 @@ public class TodoListService {
                 return todoListRepository.searchPublicTodoLists(keyword.trim(), pageable, sortBy)
                                 .map(todoList -> {
                                         TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
-                                        // 평균 별점 계산
-                                        Double averageRating = reviewRepository.calculateAverageRating(todoList);
-                                        // 리뷰 개수 계산
-                                        long reviewCount = reviewRepository.countByTodoList(todoList);
-                                        response = TodoListDto.SimpleResponse.builder()
+                                        int likeCount = (int) likeRepository.countByTodoList(todoList);
+                                        return TodoListDto.SimpleResponse.builder()
                                                         .id(response.getId())
                                                         .title(response.getTitle())
                                                         .description(response.getDescription())
@@ -379,11 +370,8 @@ public class TodoListService {
                                                         .createdAt(response.getCreatedAt())
                                                         .creatorId(response.getCreatorId())
                                                         .creatorNickname(response.getCreatorNickname())
-                                                        .averageRating(averageRating != null ? averageRating : 0.0)
-                                                        .addedCount((int) reviewCount) // 리뷰 수를 addedCount로 설정
-                                                        .reviewCount((int) reviewCount) // 리뷰 수 (별점 매긴 사람 수)
+                                                        .likeCount(likeCount)
                                                         .build();
-                                        return response;
                                 });
         }
 
@@ -415,14 +403,10 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                // 리뷰 정보 조회 (평균 별점, 리뷰 수)
-                Double averageRating = reviewRepository.calculateAverageRating(todoList);
-                long reviewCount = reviewRepository.countByTodoList(todoList);
-                
-                // 공개 투두리스트는 모든 사용자가 조회 가능 (본인 체크 없음)
+                int likeCount = (int) likeRepository.countByTodoList(todoList);
+                boolean isLiked = userId != null && likeRepository.existsByTodoListAndUser(todoList, userRepository.findById(userId).orElse(null));
+
                 TodoListDto.DetailResponse baseResponse = TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
-                
-                // 리뷰 정보를 포함하여 새로 빌드
                 return TodoListDto.DetailResponse.builder()
                                 .id(baseResponse.getId())
                                 .title(baseResponse.getTitle())
@@ -438,9 +422,8 @@ public class TodoListService {
                                 .creatorId(baseResponse.getCreatorId())
                                 .creatorNickname(baseResponse.getCreatorNickname())
                                 .missionCount(baseResponse.getMissionCount() != null ? baseResponse.getMissionCount() : baseResponse.getTotalCount())
-                                .averageRating(averageRating != null ? averageRating : 0.0)
-                                .reviewCount((int) reviewCount)
-                                .addedCount((int) reviewCount) // 담은 횟수는 리뷰 수로 대체
+                                .likeCount(likeCount)
+                                .isLiked(isLiked)
                                 .build();
         }
 
@@ -543,80 +526,47 @@ public class TodoListService {
                 log.info("투두리스트 보관 완료: todoListId={}, userId={}", todoListId, userId);
         }
 
-        // ============ 공유 관련 메서드 제거됨 (불필요) ============
-        // shareTodoList, unshareTodoList, getShareableTodoLists, getPublicTodoLists,
-        // searchPublicTodoLists, getPublicTodoListDetail, copyTodoList
-
-        // ============ 리뷰 관련 메서드들 ============
-
         /**
-         * 투두리스트 리뷰 작성
+         * 투두리스트 좋아요 추가
+         * 본인 투두리스트에는 불가. 이미 좋아요한 경우 무시(200).
          */
         @Transactional
-        public TodoListDto.ReviewResponse createReview(Long todoListId, Long userId,
-                        TodoListDto.ReviewRequest request) {
+        public void likeTodoList(Long todoListId, Long userId) {
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
-                // 자신의 투두리스트에는 리뷰 작성 불가
                 if (todoList.isCreator(userId)) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "자신의 투두리스트에는 리뷰를 작성할 수 없습니다.");
+                        throw new CustomException(ErrorCode.INVALID_REQUEST, "자신의 투두리스트에는 좋아요를 누를 수 없습니다.");
                 }
 
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-                // 이미 리뷰를 작성했는지 확인
-                if (reviewRepository.existsByTodoListAndUser(todoList, user)) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 리뷰를 작성했습니다.");
+                if (likeRepository.existsByTodoListAndUser(todoList, user)) {
+                        return; // 이미 좋아요함 → 무시
                 }
 
-                // 리뷰 생성
-                TodoListReview review = TodoListReview.builder()
+                TodoListLike like = TodoListLike.builder()
                                 .todoList(todoList)
                                 .user(user)
-                                .rating(request.getRating())
                                 .build();
-                reviewRepository.save(review);
-
-                // 평균 별점 업데이트
-                updateAverageRating(todoList);
-
-                log.info("투두리스트 리뷰 작성: todoListId={}, userId={}", todoListId, userId);
-                return buildReviewResponse(review);
+                likeRepository.save(like);
+                log.info("투두리스트 좋아요: todoListId={}, userId={}", todoListId, userId);
         }
 
         /**
-         * 투두리스트 리뷰 목록 조회
+         * 투두리스트 좋아요 취소
          */
-        public Page<TodoListDto.ReviewResponse> getReviews(Long todoListId, Pageable pageable) {
+        @Transactional
+        public void unlikeTodoList(Long todoListId, Long userId) {
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
-                return reviewRepository.findByTodoListOrderByCreatedAtDesc(todoList, pageable)
-                                .map(this::buildReviewResponse);
-        }
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        /**
-         * 평균 별점 업데이트
-         */
-        private void updateAverageRating(TodoList todoList) {
-                // 리뷰 평점 업데이트 제거됨 (공유 기능 제거)
-        }
-
-        /**
-         * ReviewResponse 빌드 헬퍼
-         */
-        private TodoListDto.ReviewResponse buildReviewResponse(TodoListReview review) {
-                return TodoListDto.ReviewResponse.builder()
-                                .id(review.getId())
-                                .todoListId(review.getTodoList().getId())
-                                .userId(review.getUser().getId())
-                                .userNickname(review.getUser().getNickname())
-                                .rating(review.getRating())
-                                .createdAt(review.getCreatedAt())
-                                .updatedAt(review.getUpdatedAt())
-                                .build();
+                likeRepository.deleteByTodoListAndUser(todoList, user);
+                log.info("투두리스트 좋아요 취소: todoListId={}, userId={}", todoListId, userId);
         }
 
         /**
@@ -643,65 +593,6 @@ public class TodoListService {
 
                 log.info("투두리스트 수정 완료: id={}, userId={}", todoListId, userId);
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
-        }
-
-        /**
-         * 내 리뷰 조회
-         */
-        public TodoListDto.ReviewResponse getMyReview(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findById(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-                return reviewRepository.findByTodoListAndUser(todoList, user)
-                                .map(this::buildReviewResponse)
-                                .orElse(null);
-        }
-
-        /**
-         * 리뷰 수정
-         */
-        @Transactional
-        public TodoListDto.ReviewResponse updateReview(Long reviewId, Long userId, TodoListDto.UpdateReviewRequest request) {
-                TodoListReview review = reviewRepository.findById(reviewId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
-
-                // 본인 리뷰만 수정 가능
-                if (!review.getUser().getId().equals(userId)) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                review.update(request.getRating());
-
-                // 평균 별점 업데이트
-                updateAverageRating(review.getTodoList());
-
-                log.info("투두리스트 리뷰 수정: reviewId={}, userId={}", reviewId, userId);
-                return buildReviewResponse(review);
-        }
-
-        /**
-         * 리뷰 삭제
-         */
-        @Transactional
-        public void deleteReview(Long reviewId, Long userId) {
-                TodoListReview review = reviewRepository.findById(reviewId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
-
-                // 본인 리뷰만 삭제 가능
-                if (!review.getUser().getId().equals(userId)) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                TodoList todoList = review.getTodoList();
-                reviewRepository.delete(review);
-
-                // 평균 별점 업데이트
-                updateAverageRating(todoList);
-
-                log.info("투두리스트 리뷰 삭제: reviewId={}, userId={}", reviewId, userId);
         }
 
         /**

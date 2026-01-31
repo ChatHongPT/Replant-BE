@@ -211,51 +211,21 @@ public class TodoListController {
                 return ApiResponse.success(null);
         }
 
-        @Operation(summary = "투두리스트 리뷰 작성", description = "투두리스트에 리뷰를 작성합니다. 자신의 투두리스트에는 리뷰를 작성할 수 없습니다.")
-        @PostMapping("/{todoListId}/reviews")
-        @ResponseStatus(HttpStatus.CREATED)
-        public ApiResponse<TodoListDto.ReviewResponse> createReview(
-                        @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
-                        @AuthenticationPrincipal Long userId,
-                        @RequestBody TodoListDto.ReviewRequest request) {
-                TodoListDto.ReviewResponse response = todoListService.createReview(todoListId, userId, request);
-                return ApiResponse.success(response);
-        }
-
-        @Operation(summary = "투두리스트 리뷰 목록 조회", description = "투두리스트의 리뷰 목록을 조회합니다.")
-        @GetMapping("/{todoListId}/reviews")
-        public ApiResponse<Page<TodoListDto.ReviewResponse>> getReviews(
-                        @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
-                        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<TodoListDto.ReviewResponse> response = todoListService.getReviews(todoListId, pageable);
-                return ApiResponse.success(response);
-        }
-
-        @Operation(summary = "내 리뷰 조회", description = "특정 투두리스트에 작성한 내 리뷰를 조회합니다.")
-        @GetMapping("/{todoListId}/reviews/my")
-        public ApiResponse<TodoListDto.ReviewResponse> getMyReview(
+        @Operation(summary = "투두리스트 좋아요", description = "공개 투두리스트에 좋아요를 추가합니다. 자신의 투두리스트에는 불가. 이미 좋아요한 경우 무시(200).")
+        @PostMapping("/{todoListId}/likes")
+        public ApiResponse<Void> likeTodoList(
                         @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
                         @AuthenticationPrincipal Long userId) {
-                TodoListDto.ReviewResponse response = todoListService.getMyReview(todoListId, userId);
-                return ApiResponse.success(response);
+                todoListService.likeTodoList(todoListId, userId);
+                return ApiResponse.success(null);
         }
 
-        @Operation(summary = "리뷰 수정", description = "작성한 리뷰를 수정합니다.")
-        @PutMapping("/reviews/{reviewId}")
-        public ApiResponse<TodoListDto.ReviewResponse> updateReview(
-                        @Parameter(description = "리뷰 ID") @PathVariable Long reviewId,
-                        @AuthenticationPrincipal Long userId,
-                        @RequestBody TodoListDto.UpdateReviewRequest request) {
-                TodoListDto.ReviewResponse response = todoListService.updateReview(reviewId, userId, request);
-                return ApiResponse.success(response);
-        }
-
-        @Operation(summary = "리뷰 삭제", description = "작성한 리뷰를 삭제합니다.")
-        @DeleteMapping("/reviews/{reviewId}")
-        public ApiResponse<Void> deleteReview(
-                        @Parameter(description = "리뷰 ID") @PathVariable Long reviewId,
+        @Operation(summary = "투두리스트 좋아요 취소", description = "투두리스트 좋아요를 취소합니다.")
+        @DeleteMapping("/{todoListId}/likes")
+        public ApiResponse<Void> unlikeTodoList(
+                        @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
                         @AuthenticationPrincipal Long userId) {
-                todoListService.deleteReview(reviewId, userId);
+                todoListService.unlikeTodoList(todoListId, userId);
                 return ApiResponse.success(null);
         }
 

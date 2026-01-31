@@ -90,9 +90,8 @@ public class TodoListDto {
         private LocalDateTime createdAt;
         private Long creatorId;
         private String creatorNickname;
-        private Double averageRating;  // 평균 별점
-        private Integer addedCount;    // 리뷰 수 (담은 횟수로 사용)
-        private Integer reviewCount;   // 리뷰 수 (별점 매긴 사람 수)
+        private Integer likeCount;   // 좋아요 수
+        private Boolean isLiked;     // 현재 사용자 좋아요 여부 (선택, 목록/상세에서 설정)
 
         public static SimpleResponse from(TodoList todoList) {
             return SimpleResponse.builder()
@@ -107,7 +106,6 @@ public class TodoListDto {
                     .createdAt(todoList.getCreatedAt())
                     .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
                     .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
-                    .averageRating(null)  // from 메서드에서는 null로 설정, 서비스에서 계산하여 설정
                     .build();
         }
     }
@@ -130,9 +128,8 @@ public class TodoListDto {
         private Long creatorId;
         private String creatorNickname;
         private Integer missionCount;  // totalCount와 동일하지만 프론트엔드 호환성을 위해
-        private Integer addedCount;    // 담은 횟수 (리뷰 수로 대체하거나 별도 계산 필요)
-        private Double averageRating;  // 평균 별점
-        private Integer reviewCount;    // 리뷰 수
+        private Integer likeCount;    // 좋아요 수
+        private Boolean isLiked;     // 현재 사용자 좋아요 여부
 
         public static DetailResponse from(TodoList todoList) {
             List<TodoMissionInfo> missionInfos = todoList.getMissions() != null
@@ -364,30 +361,4 @@ public class TodoListDto {
 
     // ============ 공개 투두리스트용 DTOs 제거됨 (공유 기능 제거) ============
     // PublicResponse, PublicDetailResponse, PublicMissionInfo 모두 제거됨
-
-    // ============ 리뷰용 DTOs ============
-    // TodoListReviewDto에서 처리하거나 여기 내부 클래스 유지. 서비스에서 내부 클래스 사용 중이면 유지.
-    // 기존 서비스 로직은 내부 클래스를 사용했음. 그대로 유지.
-
-    @Getter
-    public static class ReviewRequest {
-        private Integer rating; // 1-5
-    }
-
-    @Getter
-    public static class UpdateReviewRequest {
-        private Integer rating;
-    }
-
-    @Getter
-    @Builder
-    public static class ReviewResponse {
-        private Long id;
-        private Long todoListId;
-        private Long userId;
-        private String userNickname;
-        private Integer rating;
-        private LocalDateTime createdAt;
-        private LocalDateTime updatedAt;
-    }
 }

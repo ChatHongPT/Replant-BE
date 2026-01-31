@@ -136,9 +136,8 @@ public enum ErrorCode {
     BADGE_REQUIRED(HttpStatus.FORBIDDEN, "B001", "유효한 배지가 필요합니다"),
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "B002", "배지를 찾을 수 없습니다"),
 
-    // Review
+    // Review (미션 리뷰용)
     REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV001", "이미 리뷰를 작성했습니다"),
-    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "RV002", "리뷰를 찾을 수 없습니다"),
 
     // QnA
     QNA_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "QnA를 찾을 수 없습니다"),
@@ -214,7 +213,6 @@ public enum ErrorCode {
     MISSION_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "MS001", "미션세트를 찾을 수 없습니다"),
     MISSION_ALREADY_IN_SET(HttpStatus.CONFLICT, "MS002", "이미 미션세트에 포함된 미션입니다"),
     MISSION_NOT_IN_SET(HttpStatus.NOT_FOUND, "MS003", "미션세트에 해당 미션이 없습니다"),
-    CANNOT_REVIEW_OWN_SET(HttpStatus.FORBIDDEN, "MS005", "자신의 미션세트에는 리뷰를 작성할 수 없습니다"),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "MS004", "접근 권한이 없습니다"),
     TODO_DUPLICATE_DATE(HttpStatus.CONFLICT, "MS006", "오늘 이미 투두리스트를 생성했습니다."),
     VERIFICATION_REQUIRED(HttpStatus.BAD_REQUEST, "MS007", "공식 미션은 인증이 필수입니다. 먼저 인증을 완료해주세요.");
