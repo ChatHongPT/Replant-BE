@@ -137,6 +137,15 @@ public class UserMissionController {
                 return ApiResponse.success(mission);
         }
 
+        @Operation(summary = "커스텀 미션 인증 취소", description = "실수로 인증 완료한 커스텀 미션을 다시 체크하면 인증을 취소합니다.")
+        @PutMapping("/cancel-custom/{missionId}")
+        public ApiResponse<UserMissionResponse> cancelCustomMission(
+                        @Parameter(description = "미션 ID (Mission ID)", example = "1") @PathVariable Long missionId,
+                        @AuthenticationPrincipal Long userId) {
+                UserMissionResponse mission = userMissionService.cancelCustomMissionCompletion(userId, missionId);
+                return ApiResponse.success(mission);
+        }
+
         @GetMapping("/history")
         @Operation(summary = "미션 완료 이력 조회", description = "완료한 미션의 이력을 조회합니다.")
         public ApiResponse<Page<UserMissionResponse>> getMissionHistory(

@@ -106,6 +106,14 @@ public class TodoListMission {
     }
 
     /**
+     * 미션 완료 취소 (인증 취소 시 사용)
+     */
+    public void uncomplete() {
+        this.isCompleted = false;
+        this.completedAt = null;
+    }
+
+    /**
      * 미션 완료 여부 확인
      */
     public boolean isCompletedMission() {

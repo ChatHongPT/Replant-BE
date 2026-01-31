@@ -311,6 +311,62 @@ public class UserMissionService {
         return UserMissionResponse.from(userMission, LocalDateTime.now());
     }
 
+    /**
+     * 커스텀 미션 인증 취소 (완료 상태 → 할당 상태로 되돌림)
+     * 실수로 인증 완료를 눌렀을 때 다시 체크하면 인증 취소 가능.
+     * - 미션 탭에서 완료한 경우: UserMission COMPLETED → ASSIGNED + 해당 미션의 모든 TodoListMission 완료 해제
+     * - 투두리스트 탭에서만 완료한 경우: 해당 미션의 TodoListMission만 완료 해제 (UserMission은 미완료 상태 유지)
+     */
+    @Transactional
+    public UserMissionResponse cancelCustomMissionCompletion(Long userId, Long missionId) {
+        Mission mission = missionRepository.findById(missionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+        if (mission.getMissionType() != MissionType.CUSTOM) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "공식 미션은 이 방법으로 인증 취소할 수 없습니다.");
+        }
+
+        UserMission userMission = null;
+        List<UserMission> list = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+        if (list != null && !list.isEmpty()) {
+            userMission = list.stream()
+                    .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                    .findFirst()
+                    .orElse(list.get(0));
+        }
+
+        if (userMission != null && userMission.getStatus() == UserMissionStatus.COMPLETED) {
+            userMission.updateStatus(UserMissionStatus.ASSIGNED);
+            userMissionRepository.saveAndFlush(userMission);
+        }
+
+        // 투두리스트에 포함된 같은 미션의 완료 상태 되돌림 (미션 탭/투두 탭 구분 없이 모두 처리)
+        List<TodoListMission> completedTodoMissions = todoListMissionRepository
+                .findCompleteByUserIdAndMissionId(userId, missionId);
+        for (TodoListMission todoListMission : completedTodoMissions) {
+            todoListMission.uncomplete();
+            var todoList = todoListMission.getTodoList();
+            todoList.decrementCompletedCount();
+            todoListMissionRepository.save(todoListMission);
+            todoListRepository.save(todoList);
+            log.info("cancelCustomMissionCompletion: TodoListMission 인증 취소 todoListId={}, missionId={}, userId={}",
+                    todoList.getId(), missionId, userId);
+        }
+
+        if (userMission != null) {
+            log.info("커스텀 미션 인증 취소: userId={}, missionId={}, userMissionId={}", userId, missionId, userMission.getId());
+            return UserMissionResponse.from(userMission);
+        }
+        // 투두리스트에서만 완료했던 경우: UserMission 없이 TodoListMission만 되돌렸을 때
+        return UserMissionResponse.builder()
+                .status(UserMissionStatus.ASSIGNED)
+                .missionType("CUSTOM")
+                .customMission(UserMissionResponse.CustomMissionInfo.builder()
+                        .id(missionId)
+                        .title(mission.getTitle())
+                        .build())
+                .build();
+    }
+
     @Transactional
     public void completeMissionVerification(UserMission userMission) {
         if (userMission.getStatus() == UserMissionStatus.COMPLETED) {
