@@ -39,6 +39,9 @@ public class PostResponse {
     // 본인 게시글 여부 (프론트엔드에서 수정/삭제 버튼 표시용)
     private Boolean isAuthor;
 
+    /** 공개 여부 (일반 게시글만 사용, 인증글은 항상 true) */
+    private Boolean isPublic;
+
     // 인증 상태 (VERIFICATION일 경우)
     private String status;  // PENDING, APPROVED
     private LocalDateTime verifiedAt;
@@ -119,6 +122,7 @@ public class PostResponse {
                 .commentCount(commentCount)
                 .isLiked(isLiked)
                 .isAuthor(isAuthor)
+                .isPublic(post.isVerificationPost() ? Boolean.TRUE : (post.getIsPublic() != null ? post.getIsPublic() : true))
                 .status(post.getStatus())
                 .verifiedAt(post.getVerifiedAt())
                 .completionRate(post.getCompletionRate())

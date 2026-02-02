@@ -173,6 +173,7 @@ public enum ErrorCode {
     INVALID_PARENT_COMMENT(HttpStatus.BAD_REQUEST, "P005", "부모 댓글이 올바르지 않습니다"),
     CANNOT_LIKE_OWN_POST(HttpStatus.BAD_REQUEST, "P006", "자신의 게시글에는 좋아요를 누를 수 없습니다"),
     BAD_WORD_DETECTED(HttpStatus.BAD_REQUEST, "P007", "부적절한 표현이 포함되어 있습니다"),
+    POST_PRIVATE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "P008", "비공개 글입니다"),
 
     // Recommendation
     RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RC001", "추천을 찾을 수 없습니다"),

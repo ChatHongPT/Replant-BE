@@ -87,7 +87,7 @@ public class PostService {
         boolean badgeFilter = badgeOnly != null && badgeOnly;
         User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
 
-        return postRepository.findWithFilters(missionId, badgeFilter, pageable)
+        return postRepository.findWithFilters(missionId, badgeFilter, pageable, currentUserId)
                 .map(post -> {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
@@ -102,6 +102,10 @@ public class PostService {
 
     public PostResponse getPost(Long postId, Long currentUserId) {
         Post post = findPostById(postId);
+        // 비공개 일반글: 작성자만 조회 가능
+        if (post.isGeneralPost() && Boolean.FALSE.equals(post.getIsPublic()) && !post.isAuthor(currentUserId)) {
+            throw new CustomException(ErrorCode.POST_PRIVATE_ACCESS_DENIED);
+        }
         User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
 
         long commentCount = commentRepository.countByPostId(postId);
@@ -131,11 +135,13 @@ public class PostService {
             }
         }
 
+        boolean isPublic = request.getIsPublic() != null ? request.getIsPublic() : true;
         Post post = Post.generalBuilder()
                 .user(user)
                 .title(request.getTitle())
                 .content(request.getContent())
                 .imageUrls(imageUrlsJson)
+                .isPublic(isPublic)
                 .build();
         
         log.debug("일반 게시글 생성 전 - postType={}, userId={}, title={}", post.getPostType(), userId, request.getTitle());
@@ -314,7 +320,7 @@ public class PostService {
             }
         }
 
-        post.update(request.getTitle(), request.getContent(), imageUrlsJson);
+        post.update(request.getTitle(), request.getContent(), imageUrlsJson, request.getIsPublic());
         long commentCount = commentRepository.countByPostId(postId);
         long likeCount = postLikeRepository.countByPostId(postId);
         return PostResponse.from(post, commentCount, likeCount, false, userId);

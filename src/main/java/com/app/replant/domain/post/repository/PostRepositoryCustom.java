@@ -23,12 +23,13 @@ public interface PostRepositoryCustom {
     Page<Post> findAllPosts(Pageable pageable);
 
     /**
-     * 게시글 목록 조회 (하위 호환성 - 파라미터 무시)
+     * 게시글 목록 조회. currentUserId가 있으면 공개글 + 내 비공개글, 없으면 공개글만.
      */
     Page<Post> findWithFilters(
             Long missionId,
             boolean badgeOnly,
-            Pageable pageable);
+            Pageable pageable,
+            Long currentUserId);
 
     /**
      * 커뮤니티 게시글 조회 (하위 호환성)

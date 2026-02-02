@@ -87,6 +87,10 @@ public class Post extends BaseEntity {
     @Column(name = "todo_list_id")
     private Long todoListId;
 
+    // 공개 여부 (GENERAL일 때만 사용; false = 비공개, 작성자만 목록/상세 노출)
+    @Column(name = "is_public", nullable = true)
+    private Boolean isPublic = true;
+
     // 댓글 관계
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
@@ -101,9 +105,10 @@ public class Post extends BaseEntity {
 
     /**
      * 일반 게시글 생성
+     * @param isPublic true = 공개, false = 비공개 (작성자만 노출). null이면 true로 처리
      */
     @Builder(builderMethodName = "generalBuilder")
-    public Post(User user, String title, String content, String imageUrls) {
+    public Post(User user, String title, String content, String imageUrls, Boolean isPublic) {
         this.postType = PostType.GENERAL;
         this.user = user;
         this.title = title;
@@ -111,6 +116,7 @@ public class Post extends BaseEntity {
         this.imageUrls = imageUrls;
         this.delFlag = false;
         this.hasValidBadge = false;
+        this.isPublic = isPublic != null ? isPublic : true;
     }
 
     /**
@@ -132,6 +138,7 @@ public class Post extends BaseEntity {
         post.hasValidBadge = false;
         post.completionRate = completionRate;
         post.todoListId = todoListId;
+        post.isPublic = true; // 인증글은 항상 공개
         return post;
     }
 
@@ -140,6 +147,13 @@ public class Post extends BaseEntity {
     // ========================================
 
     public void update(String title, String content, String imageUrls) {
+        update(title, content, imageUrls, null);
+    }
+
+    /**
+     * 일반 게시글 수정 시 isPublic 변경 가능. VERIFICATION이면 isPublic 무시.
+     */
+    public void update(String title, String content, String imageUrls, Boolean isPublic) {
         if (title != null) {
             this.title = title;
         }
@@ -148,6 +162,9 @@ public class Post extends BaseEntity {
         }
         if (imageUrls != null) {
             this.imageUrls = imageUrls;
+        }
+        if (this.postType == PostType.GENERAL && isPublic != null) {
+            this.isPublic = isPublic;
         }
     }
 

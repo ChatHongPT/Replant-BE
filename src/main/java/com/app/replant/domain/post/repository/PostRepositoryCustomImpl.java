@@ -70,20 +70,19 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     public Page<Post> findWithFilters(
             Long missionId,
             boolean badgeOnly,
-            Pageable pageable) {
-        
+            Pageable pageable,
+            Long currentUserId) {
+
         BooleanBuilder builder = new BooleanBuilder();
         builder.and(isGeneralOrVerification());
         builder.and(isNotDeleted());
 
-        // 파라미터는 현재 무시 (하위 호환성)
-        // 필요시 아래 주석 해제하여 사용
-        // if (missionId != null) {
-        //     builder.and(post.userMission.mission.id.eq(missionId));
-        // }
-        // if (badgeOnly) {
-        //     builder.and(post.hasValidBadge.isTrue());
-        // }
+        // 공개 글 또는 (로그인 시) 내가 쓴 글만. isPublic null = 기존 데이터 호환용 공개
+        BooleanExpression visible = post.isPublic.isNull().or(post.isPublic.eq(true));
+        if (currentUserId != null) {
+            visible = visible.or(post.user.id.eq(currentUserId));
+        }
+        builder.and(visible);
 
         JPAQuery<Post> query = queryFactory
                 .selectFrom(post)
@@ -101,8 +100,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             Long missionId,
             boolean badgeOnly,
             Pageable pageable) {
-        // findWithFilters와 동일한 구현
-        return findWithFilters(missionId, badgeOnly, pageable);
+        // findWithFilters와 동일한 구현 (currentUserId 없으면 공개글만)
+        return findWithFilters(missionId, badgeOnly, pageable, null);
     }
 
     // ========================================
