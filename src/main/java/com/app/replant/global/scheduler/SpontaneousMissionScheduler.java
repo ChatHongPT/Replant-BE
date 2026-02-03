@@ -102,6 +102,17 @@ public class SpontaneousMissionScheduler {
      */
     private static final ZoneId ZONE_SEOUL = ZoneId.of("Asia/Seoul");
 
+    /**
+     * [테스트용] 설정 저장/수정 시 즉시 기상 미션 할당 + 알림 전송.
+     * 스케줄 시간까지 기다리지 않고, 호출 시점에 바로 할당·알림.
+     */
+    @Transactional
+    public void assignWakeUpMissionAndNotifyImmediately(User user) {
+        LocalDateTime now = ZonedDateTime.now(ZONE_SEOUL).toLocalDateTime();
+        log.info("[기상미션] 테스트: 설정 저장/수정 즉시 할당·알림 userId={}, now(KST)={}", user.getId(), now);
+        assignWakeUpMission(user, now);
+    }
+
     private void assignSpontaneousMissionsInternal() {
         log.info("=== 돌발 미션 할당 스케줄러 시작 ===");
         

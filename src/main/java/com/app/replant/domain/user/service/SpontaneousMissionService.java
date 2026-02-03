@@ -6,6 +6,7 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
+import com.app.replant.global.scheduler.SpontaneousMissionScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SpontaneousMissionService {
 
     private final UserRepository userRepository;
+    private final SpontaneousMissionScheduler spontaneousMissionScheduler;
 
     /**
      * 돌발 미션 설정 완료 여부 조회
@@ -59,6 +61,13 @@ public class SpontaneousMissionService {
                 userId, request.getSleepTime(), request.getWakeTime(), 
                 request.getBreakfastTime(), request.getLunchTime(), request.getDinnerTime());
 
+        // [테스트용] 설정 저장 즉시 기상 미션 할당 + 알림 (설정 시간까지 기다리지 않음)
+        try {
+            spontaneousMissionScheduler.assignWakeUpMissionAndNotifyImmediately(user);
+        } catch (Exception e) {
+            log.warn("기상 미션 즉시 할당/알림 실패(무시): userId={}, error={}", userId, e.getMessage());
+        }
+
         return SpontaneousMissionResponse.builder()
                 .isSpontaneousMissionSetupCompleted(true)
                 .sleepTime(user.getSleepTime())
@@ -88,6 +97,13 @@ public class SpontaneousMissionService {
         log.info("돌발 미션 설정 수정: userId={}, sleepTime={}, wakeTime={}, breakfastTime={}, lunchTime={}, dinnerTime={}", 
                 userId, request.getSleepTime(), request.getWakeTime(),
                 request.getBreakfastTime(), request.getLunchTime(), request.getDinnerTime());
+
+        // [테스트용] 수정 버튼 누르는 즉시 기상 미션 할당 + 알림 (설정 시간까지 기다리지 않음)
+        try {
+            spontaneousMissionScheduler.assignWakeUpMissionAndNotifyImmediately(user);
+        } catch (Exception e) {
+            log.warn("기상 미션 즉시 할당/알림 실패(무시): userId={}, error={}", userId, e.getMessage());
+        }
 
         return SpontaneousMissionResponse.builder()
                 .isSpontaneousMissionSetupCompleted(user.isSpontaneousMissionSetupCompleted())
