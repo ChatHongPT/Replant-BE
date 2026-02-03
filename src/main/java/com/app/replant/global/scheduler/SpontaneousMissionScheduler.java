@@ -542,7 +542,7 @@ public class SpontaneousMissionScheduler {
             // 미션 타입에 따라 알림 내용과 타입 설정
             if ("기상".equals(missionType)) {
                 title = "기상 시간입니다! 🌅";
-                content = "기상 미션이 도착했습니다. 1시간 안에 인증해주세요!";
+                content = "기상 미션이 도착했습니다. 1일 안에 인증해주세요!";
                 notificationType = NotificationType.SPONTANEOUS_WAKE_UP;  // 프론트에서 인증 화면으로 라우팅
                 referenceType = "USER_MISSION";
                 referenceId = userMissionId;
@@ -705,11 +705,11 @@ public class SpontaneousMissionScheduler {
 
     /**
      * 기상 미션 시간 초과 처리 (비활성화됨)
-     * 사용자가 인증을 시도할 때만 1시간 초과 여부를 확인하도록 변경
+     * 사용자가 인증을 시도할 때만 1일 초과 여부를 확인하도록 변경
      * 스케줄러에서는 자동으로 실패 처리하지 않음
      */
     private void processExpiredSpontaneousMissions() {
-        // 비활성화: 사용자가 인증을 시도할 때만 1시간 초과 여부를 확인
+        // 비활성화: 사용자가 인증을 시도할 때만 1일 초과 여부를 확인
         // 스케줄러에서는 자동으로 실패 처리하지 않음
         // log.info("=== 돌발 미션 시간 초과 처리 시작 ===");
         // 기상 미션은 사용자가 인증을 시도할 때만 시간 초과 체크 (UserMissionService.verifyWakeUpMission)

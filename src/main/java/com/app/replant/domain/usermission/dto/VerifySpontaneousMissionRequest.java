@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 돌발 미션 인증 요청
- * - 기상 미션: 단순 버튼 클릭 (시간 제한 1시간)
+ * - 기상 미션: 단순 버튼 클릭 (시간 제한 1일)
  * - 식사 미션: 게시글 작성으로 인증 (postId 필요)
  */
 @Getter
