@@ -187,15 +187,15 @@ public class UserMissionService {
             return null;
         }
         
-        // 알림(할당) 시점 기준 6시간 이내에만 인증 가능
-        final long WAKE_UP_VERIFY_WINDOW_SECONDS = 6L * 3600;
+        // 알림(할당) 시점 기준 10분 이내에만 인증 가능
+        final long WAKE_UP_VERIFY_WINDOW_SECONDS = 10L * 60;
         java.time.ZonedDateTime nowZ = java.time.ZonedDateTime.now(ZONE_SEOUL);
         java.time.ZonedDateTime assignedZ = userMission.getAssignedAt().atZone(ZONE_SEOUL);
         long elapsedSeconds = java.time.temporal.ChronoUnit.SECONDS.between(assignedZ, nowZ);
         long remainingSeconds = Math.max(0, WAKE_UP_VERIFY_WINDOW_SECONDS - elapsedSeconds);
         boolean canVerify = remainingSeconds > 0;
-        String message = canVerify ? "6시간 이내에 인증해주세요." : "6시간이 지나 만료되었습니다.";
-        log.info("[기상미션] 6시간 윈도우 userId={}, userMissionId={}, remainingSeconds={}, canVerify={}", user.getId(), userMission.getId(), remainingSeconds, canVerify);
+        String message = canVerify ? "10분 이내에 인증해주세요." : "10분이 지나 만료되었습니다.";
+        log.info("[기상미션] 10분 윈도우 userId={}, userMissionId={}, remainingSeconds={}, canVerify={}", user.getId(), userMission.getId(), remainingSeconds, canVerify);
         
         return WakeUpMissionStatusResponse.from(
                 userMission.getId(),
@@ -821,8 +821,8 @@ public class UserMissionService {
     }
 
     /**
-     * 기상 미션 인증 (알림 후 6시간 이내에만 가능)
-     * KST 기준으로 assigned_at + 6시간 초과 시 만료 처리
+     * 기상 미션 인증 (알림 후 10분 이내에만 가능)
+     * KST 기준으로 assigned_at + 10분 초과 시 만료 처리
      */
     private VerifyMissionResponse verifyWakeUpMission(UserMission userMission, LocalDateTime now) {
         User user = userMission.getUser();
@@ -833,13 +833,13 @@ public class UserMissionService {
                     "사용자의 기상 시간이 설정되지 않았습니다.");
         }
         
-        // 알림(할당) 후 6시간 초과 시 인증 불가
+        // 알림(할당) 후 10분 초과 시 인증 불가
         LocalDateTime nowKst = java.time.ZonedDateTime.now(ZONE_SEOUL).toLocalDateTime();
-        LocalDateTime deadline = userMission.getAssignedAt().plusHours(6);
+        LocalDateTime deadline = userMission.getAssignedAt().plusMinutes(10);
         if (nowKst.isAfter(deadline)) {
             log.warn("[기상미션] 만료됨 userId={}, userMissionId={}, assignedAt={}, deadline={}, now={}", 
                     user.getId(), userMission.getId(), userMission.getAssignedAt(), deadline, nowKst);
-            throw new CustomException(ErrorCode.MISSION_EXPIRED, "알림 후 6시간이 지나 인증할 수 없습니다.");
+            throw new CustomException(ErrorCode.MISSION_EXPIRED, "알림 후 10분이 지나 인증할 수 없습니다.");
         }
 
         // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)

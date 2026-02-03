@@ -363,10 +363,10 @@ public class SpontaneousMissionScheduler {
 
     /**
      * [폴백] spontaneous_mission에 WAKE_UP 없을 때 기상 미션만 할당 (mission=null)
-     * 알림 후 6시간 이내에만 인증 가능하므로 due_date = assigned_at + 6시간
+     * 알림 후 10분 이내에만 인증 가능하므로 due_date = assigned_at + 10분
      */
     private UserMission assignWakeUpMissionFallback(User user, LocalDateTime now) {
-        LocalDateTime dueDate = now.plusHours(6);
+        LocalDateTime dueDate = now.plusMinutes(10);
         UserMission userMission = UserMission.builder()
                 .user(user)
                 .mission(null)
@@ -490,9 +490,9 @@ public class SpontaneousMissionScheduler {
         // 중복 체크는 호출하는 쪽(assignWakeUpMission 등)에서 이미 수행하므로 여기서는 생략
         // assignWakeUpMission에서 hasSpontaneousMissionToday를 호출하여 타입별로 구분해서 체크함
         
-        // 기상 미션: 알림 후 6시간 이내 인증 가능 (due_date = assigned_at + 6시간). 그 외 돌발 미션은 당일 23:59
+        // 기상 미션: 알림 후 10분 이내 인증 가능 (due_date = assigned_at + 10분). 그 외 돌발 미션은 당일 23:59
         LocalDateTime dueDate = "기상".equals(missionType)
-                ? now.plusHours(6)
+                ? now.plusMinutes(10)
                 : now.toLocalDate().atTime(23, 59, 59);
         
         // 돌발 미션은 mission을 null로 설정 (spontaneous_mission 테이블에만 존재)
@@ -576,7 +576,7 @@ public class SpontaneousMissionScheduler {
             // 미션 타입에 따라 알림 내용과 타입 설정
             if ("기상".equals(missionType)) {
                 title = "기상 시간입니다! 🌅";
-                content = "기상 미션이 도착했습니다. 6시간 안에 인증해주세요!";
+                content = "기상 미션이 도착했습니다. 10분 안에 인증해주세요!";
                 notificationType = NotificationType.SPONTANEOUS_WAKE_UP;  // 프론트에서 인증 화면으로 라우팅
                 referenceType = "USER_MISSION";
                 referenceId = userMissionId;
