@@ -173,7 +173,7 @@ public class UserMissionService {
         ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
         LocalDateTime now = nowKst.toLocalDateTime();
         LocalDateTime wakeDateTime = nowKst.toLocalDate().atTime(wakeTime);
-        LocalDateTime deadline = wakeDateTime.plusMinutes(10);
+        LocalDateTime deadline = wakeDateTime.plusMinutes(60);
         
         log.info("[기상미션] 시간 계산(KST) userId={}, wakeTimeStr={}, now={}, wakeDateTime={}, deadline={}, assignedAt={}",
                 user.getId(), wakeTimeStr, now, wakeDateTime, deadline, userMission.getAssignedAt());
@@ -189,7 +189,7 @@ public class UserMissionService {
             log.info("[기상미션] 판정=기상이전 userId={}, now={}, wakeDateTime={}, 차이초={}",
                     user.getId(), now, wakeDateTime, Duration.between(now, wakeDateTime).toSeconds());
         } else if (isExpired) {
-            message = "인증 시간(기상 시간 + 10분)이 지났습니다.";
+            message = "인증 시간(기상 시간 + 1시간)이 지났습니다.";
             log.info("[기상미션] 판정=만료 userId={}, now={}, deadline={}, 초과분={}",
                     user.getId(), now, deadline, Duration.between(deadline, now).toMinutes());
         } else if (remainingSeconds > 0) {
@@ -798,7 +798,7 @@ public class UserMissionService {
 
     /**
      * 돌발 미션 인증
-     * - 기상 미션: 시간 제한 인증 (10분 안에 버튼 클릭)
+     * - 기상 미션: 시간 제한 인증 (1시간 안에 버튼 클릭)
      * - 식사 미션: 게시글 작성으로 인증
      */
     @Transactional
@@ -820,7 +820,7 @@ public class UserMissionService {
         
         // postId가 없으면 기상 미션 (버튼만 클릭), 있으면 식사 미션 (게시글 인증)
         if (request == null || request.getPostId() == null) {
-            // 기상 미션: 시간 제한 인증 (10분 안에 버튼 클릭)
+            // 기상 미션: 시간 제한 인증 (1시간 안에 버튼 클릭)
             return verifyWakeUpMission(userMission, now);
         } else {
             // 식사 미션: 게시글 작성 인증
@@ -829,7 +829,7 @@ public class UserMissionService {
     }
 
     /**
-     * 기상 미션 인증 (시간 제한: 사용자 설정 wake_time + 10분)
+     * 기상 미션 인증 (시간 제한: 사용자 설정 wake_time + 1시간)
      * now, wakeDateTime, deadline은 Asia/Seoul(KST) 기준으로 계산 (서버 UTC 시 만료 판정 오류 방지)
      */
     private VerifyMissionResponse verifyWakeUpMission(UserMission userMission, LocalDateTime now) {
@@ -855,7 +855,7 @@ public class UserMissionService {
         ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
         LocalDateTime nowForCheck = nowKst.toLocalDateTime();
         LocalDateTime wakeDateTime = nowKst.toLocalDate().atTime(wakeTime);
-        LocalDateTime deadline = wakeDateTime.plusMinutes(10);
+        LocalDateTime deadline = wakeDateTime.plusMinutes(60);
         
         log.info("[기상미션] 인증 요청 userId={}, userMissionId={}, wakeTimeStr={}, now(KST)={}, wakeDateTime={}, deadline={}",
                 user.getId(), userMission.getId(), wakeTimeStr, nowForCheck, wakeDateTime, deadline);
@@ -876,7 +876,7 @@ public class UserMissionService {
             userMission.fail();
             userMissionRepository.save(userMission);
             throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
-                    "기상 미션 인증 시간(기상 시간 + 10분)이 초과되었습니다.");
+                    "기상 미션 인증 시간(기상 시간 + 1시간)이 초과되었습니다.");
         }
 
         // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)

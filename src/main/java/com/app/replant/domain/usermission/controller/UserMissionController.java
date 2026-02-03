@@ -177,7 +177,7 @@ public class UserMissionController {
                 return ApiResponse.success(missions);
         }
 
-        @Operation(summary = "돌발 미션 인증", description = "돌발 미션을 인증합니다. 기상 미션은 시간 제한(10분), 식사 미션은 게시글 작성으로 인증합니다.")
+        @Operation(summary = "돌발 미션 인증", description = "돌발 미션을 인증합니다. 기상 미션은 시간 제한(1시간), 식사 미션은 게시글 작성으로 인증합니다.")
         @PostMapping("/{userMissionId}/verify-spontaneous")
         public ApiResponse<VerifyMissionResponse> verifySpontaneousMission(
                         @Parameter(description = "사용자 미션 ID", example = "1") @PathVariable Long userMissionId,
