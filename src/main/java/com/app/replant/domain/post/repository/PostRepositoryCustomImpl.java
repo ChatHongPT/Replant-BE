@@ -187,6 +187,23 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return Optional.ofNullable(result);
     }
 
+    @Override
+    public Optional<Post> findVerificationPostByUserIdAndMissionId(Long userId, Long missionId) {
+        Post result = queryFactory
+                .selectFrom(post)
+                .join(post.user, user).fetchJoin()
+                .join(post.userMission, userMission).fetchJoin()
+                .join(userMission.mission, mission).fetchJoin()
+                .where(post.user.id.eq(userId)
+                        .and(userMission.mission.id.eq(missionId))
+                        .and(isVerificationType())
+                        .and(isNotDeleted()))
+                .orderBy(post.id.desc())
+                .fetchFirst();
+
+        return Optional.ofNullable(result);
+    }
+
     // ========================================
     // 단건 조회
     // ========================================

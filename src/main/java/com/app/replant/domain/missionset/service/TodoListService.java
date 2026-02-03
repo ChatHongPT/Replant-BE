@@ -14,6 +14,7 @@ import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
@@ -28,7 +29,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,6 +50,7 @@ public class TodoListService {
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
         private final UserBadgeRepository userBadgeRepository;
+        private final PostRepository postRepository;
 
         private static final int RANDOM_OFFICIAL_COUNT = 3; // 필수 공식 미션 개수
 
@@ -377,6 +382,7 @@ public class TodoListService {
 
         /**
          * 공개 투두리스트 상세 조회
+         * 작성자(creator) 기준 완료 여부 및 인증 게시글 ID(verificationPostId) 포함
          */
         public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
                 TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
@@ -391,7 +397,41 @@ public class TodoListService {
                 int likeCount = (int) likeRepository.countByTodoList(todoList);
                 boolean isLiked = userId != null && likeRepository.existsByTodoListAndUser(todoList, userRepository.findById(userId).orElse(null));
 
-                TodoListDto.DetailResponse baseResponse = TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
+                // 작성자 기준 UserMission 목록 조회
+                List<UserMission> creatorUserMissions = userMissionRepository.findByTodoList_Id(todoList.getId());
+                Map<Long, UserMission> missionIdToUserMission = new HashMap<>();
+                for (UserMission um : creatorUserMissions) {
+                        Long mid = um.getMissionId();
+                        if (mid != null) {
+                                missionIdToUserMission.put(mid, um);
+                        }
+                }
+
+                // 미션별 작성자 완료 여부 + verificationPostId로 TodoMissionInfo 생성
+                List<TodoListDto.TodoMissionInfo> missionsForPublic = new ArrayList<>();
+                for (TodoListMission msm : todoList.getMissions()) {
+                        if (msm.getMission() == null || msm.getMission().getId() == null) {
+                                missionsForPublic.add(TodoListDto.TodoMissionInfo.from(msm, null));
+                                continue;
+                        }
+                        Long missionId = msm.getMission().getId();
+                        UserMission creatorUm = missionIdToUserMission.get(missionId);
+                        Long verificationPostId = null;
+                        if (creatorUm != null && creatorUm.getStatus() == UserMissionStatus.COMPLETED) {
+                                Long creatorId = todoList.getCreator() != null ? todoList.getCreator().getId() : null;
+                                verificationPostId = postRepository.findByUserMissionId(creatorUm.getId())
+                                                .map(p -> p.getId())
+                                                .orElseGet(() -> creatorId != null
+                                                        ? postRepository.findVerificationPostByUserIdAndMissionId(creatorId, missionId)
+                                                                .map(p -> p.getId())
+                                                                .orElse(null)
+                                                        : null);
+                        }
+                        missionsForPublic.add(TodoListDto.TodoMissionInfo.from(msm, creatorUm, verificationPostId));
+                }
+
+                // 공개 상세는 미션 목록을 이미 missionsForPublic으로 채움. userId가 null(비로그인)일 수 있어 from(todoList)만 사용
+                TodoListDto.DetailResponse baseResponse = TodoListDto.DetailResponse.from(todoList);
                 return TodoListDto.DetailResponse.builder()
                                 .id(baseResponse.getId())
                                 .title(baseResponse.getTitle())
@@ -401,7 +441,7 @@ public class TodoListService {
                                 .progressRate(baseResponse.getProgressRate())
                                 .canCreateNew(baseResponse.getCanCreateNew())
                                 .status(baseResponse.getStatus())
-                                .missions(baseResponse.getMissions())
+                                .missions(missionsForPublic)
                                 .createdAt(baseResponse.getCreatedAt())
                                 .updatedAt(baseResponse.getUpdatedAt())
                                 .creatorId(baseResponse.getCreatorId())

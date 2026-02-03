@@ -57,6 +57,12 @@ public interface PostRepositoryCustom {
 
     Optional<Post> findByUserMissionId(Long userMissionId);
 
+    /**
+     * 작성자 + 미션 ID로 인증 게시글 1건 조회 (어느 UserMission으로 작성했는지와 무관).
+     * 투두리스트 상세에서 "이 미션에 대한 작성자의 인증글"을 찾을 때 사용.
+     */
+    Optional<Post> findVerificationPostByUserIdAndMissionId(Long userId, Long missionId);
+
     // ========================================
     // 단건 조회
     // ========================================

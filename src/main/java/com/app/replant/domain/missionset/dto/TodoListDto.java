@@ -260,6 +260,8 @@ public class TodoListDto {
         @JsonProperty("userMissionStatus")
         @JsonInclude(JsonInclude.Include.ALWAYS) // null이어도 JSON에 포함
         private String userMissionStatus; // UserMission의 상태 (ASSIGNED, PENDING, COMPLETED)
+        /** 작성자가 해당 미션을 완료했을 때의 인증 게시글 ID (공개 상세에서만 사용) */
+        private Long verificationPostId;
 
         public static TodoMissionInfo from(TodoListMission msm) {
             Mission mission = msm.getMission();
@@ -331,6 +333,29 @@ public class TodoListDto {
                     .scheduledEndTime(msm.getScheduledEndTime())
                     .isVerified(isVerified)
                     .userMissionStatus(userMissionStatus)
+                    .verificationPostId(null)
+                    .build();
+        }
+
+        /** 공개 상세용: UserMission + 인증 게시글 ID 포함 */
+        public static TodoMissionInfo from(TodoListMission msm, com.app.replant.domain.usermission.entity.UserMission userMission, Long verificationPostId) {
+            TodoMissionInfo base = from(msm, userMission);
+            return TodoMissionInfo.builder()
+                    .id(base.getId())
+                    .missionId(base.getMissionId())
+                    .title(base.getTitle())
+                    .description(base.getDescription())
+                    .missionType(base.getMissionType())
+                    .verificationType(base.getVerificationType())
+                    .displayOrder(base.getDisplayOrder())
+                    .isCompleted(base.getIsCompleted())
+                    .completedAt(base.getCompletedAt())
+                    .missionSource(base.getMissionSource())
+                    .scheduledStartTime(base.getScheduledStartTime())
+                    .scheduledEndTime(base.getScheduledEndTime())
+                    .isVerified(base.getIsVerified())
+                    .userMissionStatus(base.getUserMissionStatus())
+                    .verificationPostId(verificationPostId)
                     .build();
         }
     }
