@@ -7,6 +7,7 @@ import com.app.replant.domain.post.dto.CommentResponse;
 import com.app.replant.domain.post.dto.PostRequest;
 import com.app.replant.domain.post.dto.PostResponse;
 import com.app.replant.domain.post.dto.VerificationPostRequest;
+import com.app.replant.domain.post.dto.VerificationPostUpdateRequest;
 import com.app.replant.domain.post.enums.PostType;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.post.entity.Comment;
@@ -263,7 +264,7 @@ public class PostService {
      * 인증 게시글 수정
      */
     @Transactional
-    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostRequest request) {
+    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostUpdateRequest request) {
         Post post = postRepository.findVerificationPostById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 

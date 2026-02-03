@@ -3,6 +3,7 @@ package com.app.replant.domain.post.controller;
 import com.app.replant.global.common.ApiResponse;
 import com.app.replant.domain.post.dto.PostResponse;
 import com.app.replant.domain.post.dto.VerificationPostRequest;
+import com.app.replant.domain.post.dto.VerificationPostUpdateRequest;
 import com.app.replant.domain.post.service.PostService;
 import com.app.replant.domain.usermission.dto.TimeVerifyRequest;
 import com.app.replant.domain.usermission.dto.VerifyMissionResponse;
@@ -137,7 +138,7 @@ public class VerificationController {
             @Parameter(description = "인증글 ID", example = "1")
             @PathVariable Long verificationId,
             @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid VerificationPostRequest request) {
+            @RequestBody @Valid VerificationPostUpdateRequest request) {
         PostResponse post = postService.updateVerificationPost(verificationId, userId, request);
         return ApiResponse.success(post);
     }
