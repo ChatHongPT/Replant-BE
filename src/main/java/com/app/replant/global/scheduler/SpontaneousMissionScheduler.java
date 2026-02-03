@@ -576,7 +576,8 @@ public class SpontaneousMissionScheduler {
             // 미션 타입에 따라 알림 내용과 타입 설정
             if ("기상".equals(missionType)) {
                 title = "기상 시간입니다! 🌅";
-                content = "기상 미션이 도착했습니다. 10분 안에 인증해주세요! [미션 ID: " + userMissionId + "]";
+                String wakeTimeStr = user.getWakeTime() != null && !user.getWakeTime().isEmpty() ? user.getWakeTime() : "-";
+                content = "기상 미션이 도착했습니다. 10분 안에 인증해주세요! [미션 ID: " + userMissionId + "] [설정 시간: " + wakeTimeStr + "]";
                 notificationType = NotificationType.SPONTANEOUS_WAKE_UP;  // 프론트에서 인증 화면으로 라우팅
                 referenceType = "USER_MISSION";
                 referenceId = userMissionId;
