@@ -320,7 +320,7 @@ public class MissionService {
                 .user(user)
                 .badge(badge)
                 .content(request.getContent())
-                .rating(request.getRating())
+                .rating(request.getRating() != null ? request.getRating() : 5)
                 .build();
 
         MissionReview saved = reviewRepository.save(review);
