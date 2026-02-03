@@ -22,6 +22,8 @@ public class UserMissionResponse {
     private LocalDateTime dueDate;
     private UserMissionStatus status;
     private LocalDateTime completedAt; // 완료 날짜
+    /** 완료된 공식 미션의 인증 게시글 ID (캘린더 등에서 게시글 모달 링크용) */
+    private Long verificationPostId;
 
     @Getter
     @Builder
@@ -43,16 +45,21 @@ public class UserMissionResponse {
     }
 
     public static UserMissionResponse from(UserMission userMission) {
-        return from(userMission, null);
+        return from(userMission, null, null);
     }
 
     public static UserMissionResponse from(UserMission userMission, LocalDateTime completedAt) {
+        return from(userMission, completedAt, null);
+    }
+
+    public static UserMissionResponse from(UserMission userMission, LocalDateTime completedAt, Long verificationPostId) {
         UserMissionResponseBuilder builder = UserMissionResponse.builder()
                 .id(userMission.getId())
                 .assignedAt(userMission.getAssignedAt())
                 .dueDate(userMission.getDueDate())
                 .status(userMission.getStatus())
-                .completedAt(completedAt);
+                .completedAt(completedAt)
+                .verificationPostId(verificationPostId);
 
         // 통합된 Mission 엔티티 사용
         Mission mission = userMission.getMission();

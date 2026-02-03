@@ -542,7 +542,7 @@ public class UserMissionService {
     public List<UserMissionResponse> getMissionsByDate(Long userId, LocalDate date) {
         List<UserMission> missions = userMissionRepository.findByUserIdAndAssignedDate(userId, date);
         return missions.stream()
-                .map(UserMissionResponse::from)
+                .map(um -> toUserMissionResponseWithPostId(um, null))
                 .collect(Collectors.toList());
     }
 
@@ -556,8 +556,21 @@ public class UserMissionService {
     public List<UserMissionResponse> getMissionsByDateRange(Long userId, LocalDate startDate, LocalDate endDate) {
         List<UserMission> missions = userMissionRepository.findByUserIdAndAssignedDateRange(userId, startDate, endDate);
         return missions.stream()
-                .map(UserMissionResponse::from)
+                .map(um -> toUserMissionResponseWithPostId(um, null))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 캘린더용: UserMission → UserMissionResponse (완료 시 인증 게시글 ID 포함)
+     */
+    private UserMissionResponse toUserMissionResponseWithPostId(UserMission um, LocalDateTime completedAt) {
+        Long verificationPostId = null;
+        if (um.getStatus() == UserMissionStatus.COMPLETED) {
+            verificationPostId = postRepository.findByUserMissionId(um.getId())
+                    .map(Post::getId)
+                    .orElse(null);
+        }
+        return UserMissionResponse.from(um, completedAt, verificationPostId);
     }
 
     private MissionVerification verifyGPS(UserMission userMission, VerifyMissionRequest request) {
