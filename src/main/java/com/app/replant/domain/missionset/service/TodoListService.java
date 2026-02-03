@@ -218,12 +218,10 @@ public class TodoListService {
                                         .missionSource(MissionSource.RANDOM_OFFICIAL)
                                         .build();
                         
-                        // 시간대 정보가 있으면 설정
                         if (request.getMissionSchedules() != null) {
                                 TodoListDto.CreateRequest.MissionScheduleInfo schedule = 
                                                 request.getMissionSchedules().get(mission.getId());
                                 if (schedule != null && schedule.getStartTime() != null && schedule.getEndTime() != null) {
-                                        // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
                                         if (!schedule.getStartTime().isBefore(schedule.getEndTime())) {
                                                 throw new CustomException(ErrorCode.INVALID_REQUEST,
                                                                 "미션 '" + mission.getTitle() + "'의 시작 시간은 종료 시간보다 이전이어야 합니다.");
@@ -233,23 +231,8 @@ public class TodoListService {
                         }
                         
                         todoList.getMissions().add(msm);
-
-                        // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
-                        LocalDateTime dueDate = mission.getDurationDays() != null
-                                        ? now.plusDays(mission.getDurationDays())
-                                        : defaultDueDate;
-                        UserMission userMission = UserMission.builder()
-                                        .user(user)
-                                        .mission(mission)
-                                        .missionType(mission.getMissionType())
-                                        .assignedAt(now)
-                                        .dueDate(dueDate)
-                                        .status(UserMissionStatus.ASSIGNED)
-                                        .build();
-                        userMissionRepository.saveAndFlush(userMission); // 즉시 DB에 반영하여 조회 가능하도록
                 }
 
-                // 커스텀 미션 추가
                 for (Mission mission : customMissions) {
                         TodoListMission msm = TodoListMission.todoMissionBuilder()
                                         .todoList(todoList)
@@ -258,12 +241,10 @@ public class TodoListService {
                                         .missionSource(MissionSource.CUSTOM_SELECTED)
                                         .build();
                         
-                        // 시간대 정보가 있으면 설정
                         if (request.getMissionSchedules() != null) {
                                 TodoListDto.CreateRequest.MissionScheduleInfo schedule = 
                                                 request.getMissionSchedules().get(mission.getId());
                                 if (schedule != null && schedule.getStartTime() != null && schedule.getEndTime() != null) {
-                                        // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
                                         if (!schedule.getStartTime().isBefore(schedule.getEndTime())) {
                                                 throw new CustomException(ErrorCode.INVALID_REQUEST,
                                                                 "미션 '" + mission.getTitle() + "'의 시작 시간은 종료 시간보다 이전이어야 합니다.");
@@ -273,8 +254,13 @@ public class TodoListService {
                         }
                         
                         todoList.getMissions().add(msm);
+                }
 
-                        // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
+                todoListRepository.save(todoList);
+
+                // UserMission 생성 (todo_list_id 연결 → 투두리스트 Hard Delete 시 나의 미션/캘린더에서도 제거)
+                for (TodoListMission msm : todoList.getMissions()) {
+                        Mission mission = msm.getMission();
                         LocalDateTime dueDate = mission.getDurationDays() != null
                                         ? now.plusDays(mission.getDurationDays())
                                         : (mission.getDeadlineDays() != null ? now.plusDays(mission.getDeadlineDays())
@@ -286,11 +272,10 @@ public class TodoListService {
                                         .assignedAt(now)
                                         .dueDate(dueDate)
                                         .status(UserMissionStatus.ASSIGNED)
+                                        .todoList(todoList)
                                         .build();
-                        userMissionRepository.saveAndFlush(userMission); // 즉시 DB에 반영하여 조회 가능하도록
+                        userMissionRepository.saveAndFlush(userMission);
                 }
-
-                todoListRepository.save(todoList);
 
                 log.info("투두리스트 생성 완료: id={}, userId={}, 필수 미션 {}개, 커스텀 미션 {}개, 총 {}개",
                                 todoList.getId(), userId, RANDOM_OFFICIAL_COUNT, customMissions.size(), totalMissionCount);
@@ -596,20 +581,36 @@ public class TodoListService {
         }
 
         /**
-         * 투두리스트 삭제
+         * 투두리스트 삭제 (진행 중(ACTIVE)만 허용, Hard Delete)
+         * - DB에서 행을 실제 삭제함. setActive(false) 등 소프트 딜리트 사용하지 않음.
+         * - 진행 중 탭에서만 삭제 버튼이 노출되며, 이 메서드만 삭제 진입점임.
          */
         @Transactional
         public void deleteTodoList(Long todoListId, Long userId) {
+                log.info("투두리스트 삭제 요청 (Hard Delete 경로): todoListId={}, userId={}", todoListId, userId);
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
-                // 본인만 삭제 가능
                 if (!todoList.isCreator(userId)) {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                todoList.setActive(false);
-                log.info("투두리스트 삭제 완료: todoListId={}, userId={}", todoListId, userId);
+                if (todoList.getTodolistStatus() != TodoListStatus.ACTIVE) {
+                        throw new CustomException(ErrorCode.INVALID_REQUEST, "진행 중인 투두리스트만 삭제할 수 있습니다.");
+                }
+
+                // 미션을 한 번이라도 수행했으면 삭제 불가 (완전히 새로 만들고 잘못 만들었을 때만 삭제 가능)
+                List<UserMission> todoListUserMissions = userMissionRepository.findByTodoList_Id(todoList.getId());
+                boolean anyPerformed = todoListUserMissions.stream()
+                                .anyMatch(um -> um.getStatus() != UserMissionStatus.ASSIGNED);
+                if (anyPerformed) {
+                        throw new CustomException(ErrorCode.INVALID_REQUEST,
+                                        "미션을 수행한 투두리스트는 삭제할 수 없습니다. 새로 만들고 아직 미션을 하지 않았을 때만 삭제할 수 있습니다.");
+                }
+
+                userMissionRepository.deleteByTodoList_Id(todoList.getId());
+                todoListRepository.delete(todoList);
+                log.info("투두리스트 Hard Delete 완료 (DB에서 삭제됨, 해당 UserMission도 삭제): todoListId={}, userId={}", todoListId, userId);
         }
 
         /**

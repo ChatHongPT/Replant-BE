@@ -196,6 +196,27 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
                 .fetch();
     }
 
+    /**
+     * 미션 도감용: 해당 유저가 해당 공식 미션들을 한 번이라도 수행한 UserMission 전부 조회 (날짜/상태 무관).
+     * 진행 중 투두리스트가 아닌 "과거 포함 전체 수행 이력" 기준으로 isAttempted/isCompleted 계산용.
+     */
+    @Override
+    public List<UserMission> findAllByUserIdAndMissionIds(Long userId, List<Long> missionIds) {
+        if (missionIds == null || missionIds.isEmpty()) {
+            return List.of();
+        }
+        return queryFactory
+                .selectFrom(userMission)
+                .join(userMission.user, user).fetchJoin()
+                .join(userMission.mission, mission).fetchJoin()
+                .where(userMission.user.id.eq(userId)
+                        .and(userMission.mission.id.in(missionIds))
+                        .and(userMission.mission.id.isNotNull()))
+                .distinct()
+                .orderBy(userMission.mission.id.asc(), userMission.id.desc())
+                .fetch();
+    }
+
     @Override
     public List<UserMission> findByUserIdAndAssignedDate(Long userId, LocalDate date) {
         LocalDateTime startOfDay = date.atStartOfDay();

@@ -2,6 +2,7 @@ package com.app.replant.domain.usermission.entity;
 
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionType;
+import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import jakarta.persistence.*;
@@ -55,11 +56,18 @@ public class UserMission {
     @Column(name = "is_spontaneous", nullable = false)
     private Boolean isSpontaneous = false;
 
+    /** 투두리스트에서 생성된 미션인 경우 해당 투두리스트. null이면 미션 탭 등 다른 경로로 배정된 미션. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "todo_list_id")
+    private TodoList todoList;
+
     @Builder
     private UserMission(User user, Mission mission, MissionType missionType,
-            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status, Boolean isSpontaneous) {
+            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status, Boolean isSpontaneous,
+            TodoList todoList) {
         this.user = user;
         this.mission = mission;
+        this.todoList = todoList;
 
         // missionType 결정 로직
         if (missionType != null) {

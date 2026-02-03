@@ -79,8 +79,17 @@ public interface UserMissionRepositoryCustom {
 
     /**
      * 특정 유저와 여러 미션 ID로 UserMission 일괄 조회
+     * (오늘 할당된 미션이거나 PENDING 상태만 반환 - 투두리스트/상세용)
      */
     List<UserMission> findByUserIdAndMissionIds(
+            Long userId,
+            List<Long> missionIds);
+
+    /**
+     * 특정 유저가 해당 미션들을 한 번이라도 수행한 UserMission 전부 조회 (날짜/상태 무관)
+     * 미션 도감 공식 미션 탭에서 "내가 수행해본 미션" 표시용.
+     */
+    List<UserMission> findAllByUserIdAndMissionIds(
             Long userId,
             List<Long> missionIds);
 

@@ -52,11 +52,11 @@ public class MissionService {
         // Pageable.unpaged()를 사용하여 전체 미션을 조회
         Page<Mission> allMissions = missionRepository.findMissions(category, verificationType, Pageable.unpaged());
         
-        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (전체 미션 기준)
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (미션 도감용: 과거 포함 전체 수행 이력)
         Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !allMissions.getContent().isEmpty()) {
-            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+            List<UserMission> userMissions = userMissionRepository.findAllByUserIdAndMissionIds(
                     userId, 
                     allMissions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
@@ -160,11 +160,11 @@ public class MissionService {
                 category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable
         );
         
-        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (미션 도감용: 과거 포함 전체 수행 이력)
         Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
-            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+            List<UserMission> userMissions = userMissionRepository.findAllByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
@@ -232,11 +232,11 @@ public class MissionService {
                 genderType, regionType, difficultyLevel, pageable
         );
         
-        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (미션 도감용: 과거 포함 전체 수행 이력)
         Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
-            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+            List<UserMission> userMissions = userMissionRepository.findAllByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
@@ -445,11 +445,11 @@ public class MissionService {
     public Page<MissionResponse> getCustomMissions(Pageable pageable, Long userId) {
         Page<Mission> missions = missionRepository.findCustomMissions(pageable);
         
-        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (미션 도감용: 과거 포함 전체 수행 이력)
         Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
-            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+            List<UserMission> userMissions = userMissionRepository.findAllByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
@@ -506,11 +506,11 @@ public class MissionService {
                 keyword, worryType, difficultyLevel, pageable
         );
         
-        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (미션 도감용: 과거 포함 전체 수행 이력)
         Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
-            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+            List<UserMission> userMissions = userMissionRepository.findAllByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );

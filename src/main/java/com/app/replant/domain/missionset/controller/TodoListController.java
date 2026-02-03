@@ -241,7 +241,7 @@ public class TodoListController {
                 return ApiResponse.success(response);
         }
 
-        @Operation(summary = "투두리스트 삭제", description = "투두리스트를 삭제합니다. (Soft Delete)")
+        @Operation(summary = "투두리스트 삭제", description = "진행 중(ACTIVE)인 투두리스트만 삭제합니다. (Hard Delete)")
         @DeleteMapping("/{todoListId}")
         public ApiResponse<Void> deleteTodoList(
                         @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,

@@ -264,6 +264,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V41 후처리 완료");
             }
 
+            // V42: user_mission.todo_list_id 컬럼 추가 (투두리스트 Hard Delete 시 해당 미션도 나의 미션/캘린더에서 제거용)
+            log.info("V42 마이그레이션 실행 중: user_mission.todo_list_id 컬럼 추가...");
+            executeV42Migration(conn);
+            log.info("V42 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -1235,6 +1240,23 @@ public class ManualMigrationRunner implements CommandLineRunner {
             stmt.execute("DROP TABLE IF EXISTS `todolist_review`");
             stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
             log.info("V41 후처리: todolist_review 테이블 삭제 완료");
+        }
+    }
+
+    /**
+     * V42: user_mission.todo_list_id 컬럼 추가
+     * 투두리스트에서 생성된 미션만 식별해 Hard Delete 시 나의 미션/캘린더에서도 함께 제거
+     */
+    private void executeV42Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            if (!columnExists(stmt, "user_mission", "todo_list_id")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user_mission` ADD COLUMN `todo_list_id` BIGINT NULL DEFAULT NULL, " +
+                    "ADD INDEX `idx_user_mission_todo_list` (`todo_list_id`)");
+                log.info("V42 마이그레이션: user_mission.todo_list_id 컬럼 추가 완료");
+            } else {
+                log.info("V42 마이그레이션: user_mission.todo_list_id 컬럼이 이미 존재함");
+            }
         }
     }
 }
