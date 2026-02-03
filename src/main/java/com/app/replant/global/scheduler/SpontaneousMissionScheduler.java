@@ -339,23 +339,43 @@ public class SpontaneousMissionScheduler {
         Optional<SpontaneousMission> spontaneousMissionOpt = spontaneousMissionRepository
                 .findByMissionType(SpontaneousMissionType.WAKE_UP);
         
-        if (spontaneousMissionOpt.isEmpty()) {
-            log.warn("[기상미션] spontaneous_mission 테이블에 WAKE_UP 없음 userId={}", user.getId());
-            return;
+        UserMission userMission;
+        String titleForNotification;
+        if (spontaneousMissionOpt.isPresent()) {
+            SpontaneousMission spontaneousMission = spontaneousMissionOpt.get();
+            titleForNotification = spontaneousMission.getTitle();
+            log.info("[기상미션] spontaneous_mission 조회됨 id={}, title={}", spontaneousMission.getId(), titleForNotification);
+            userMission = assignSpontaneousMissionToUser(user, spontaneousMission, now, "기상");
+        } else {
+            // [폴백] spontaneous_mission에 WAKE_UP 없어도 기상 미션 할당 + 알림 (테스트/운영 안정성)
+            log.warn("[기상미션] spontaneous_mission에 WAKE_UP 없음 → 폴백으로 UserMission 생성 후 알림 전송 userId={}", user.getId());
+            userMission = assignWakeUpMissionFallback(user, now);
+            titleForNotification = "기상하기";
         }
-        
-        SpontaneousMission spontaneousMission = spontaneousMissionOpt.get();
-        String spontaneousTitle = spontaneousMission.getTitle();
-        log.info("[기상미션] spontaneous_mission 조회됨 id={}, title={}", spontaneousMission.getId(), spontaneousTitle);
-        
-        UserMission userMission = assignSpontaneousMissionToUser(user, spontaneousMission, now, "기상");
         if (userMission != null) {
             log.info("[기상미션] 할당 완료 userId={}, userMissionId={}, assignedAt={}, 알림 전송 예정", 
                     user.getId(), userMission.getId(), userMission.getAssignedAt());
-            sendSpontaneousMissionNotification(user, spontaneousTitle, "기상", userMission.getId());
+            sendSpontaneousMissionNotification(user, titleForNotification, "기상", userMission.getId());
         } else {
             log.warn("[기상미션] 할당 실패 userMission=null userId={}", user.getId());
         }
+    }
+
+    /**
+     * [폴백] spontaneous_mission에 WAKE_UP 없을 때 기상 미션만 할당 (mission=null)
+     */
+    private UserMission assignWakeUpMissionFallback(User user, LocalDateTime now) {
+        LocalDateTime dueDate = now.toLocalDate().atTime(23, 59, 59);
+        UserMission userMission = UserMission.builder()
+                .user(user)
+                .mission(null)
+                .missionType(MissionType.OFFICIAL)
+                .assignedAt(now)
+                .dueDate(dueDate)
+                .status(UserMissionStatus.ASSIGNED)
+                .isSpontaneous(true)
+                .build();
+        return userMissionRepository.save(userMission);
     }
 
     /**
