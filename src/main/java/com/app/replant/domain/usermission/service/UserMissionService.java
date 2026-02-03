@@ -35,6 +35,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -105,10 +107,12 @@ public class UserMissionService {
      * @param userId 사용자 ID
      * @return userMissionId (없으면 null)
      */
+    private static final ZoneId ZONE_SEOUL = ZoneId.of("Asia/Seoul");
+
     @Transactional(readOnly = true)
     public Long findCurrentWakeUpMissionId(Long userId) {
-        // 오늘 날짜에 할당된 모든 미션 조회 (페이지 크기 제한 없이)
-        LocalDate today = LocalDate.now();
+        // 오늘 날짜에 할당된 모든 미션 조회 (KST 기준 - 사용자/스케줄러와 동일)
+        LocalDate today = LocalDate.now(ZONE_SEOUL);
         List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         
         // 돌발 미션 중 가장 최근 ASSIGNED 미션 조회
@@ -130,8 +134,8 @@ public class UserMissionService {
     public WakeUpMissionStatusResponse getCurrentWakeUpMissionStatus(Long userId) {
         log.info("기상 미션 상태 조회 시작: userId={}", userId);
         
-        // 오늘 날짜에 할당된 모든 미션 조회 (페이지 크기 제한 없이)
-        LocalDate today = LocalDate.now();
+        // 오늘 날짜(KST)에 할당된 모든 미션 조회
+        LocalDate today = LocalDate.now(ZONE_SEOUL);
         List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         log.info("오늘 할당된 미션 수: userId={}, count={}", userId, todayMissions.size());
         
@@ -168,11 +172,12 @@ public class UserMissionService {
             return null;
         }
         
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime wakeDateTime = LocalDate.now().atTime(wakeTime);
+        // KST 기준으로 현재 시각·기상 시각·마감 시각 계산 (서버가 UTC일 때 만료 판정 오류 방지)
+        ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
+        LocalDateTime now = nowKst.toLocalDateTime();
+        LocalDateTime wakeDateTime = nowKst.toLocalDate().atTime(wakeTime);
         LocalDateTime deadline = wakeDateTime.plusMinutes(10);
         
-        // 디버깅 로그 추가 (INFO 레벨로 변경하여 항상 출력)
         log.info("기상 미션 상태 조회: userId={}, wakeTimeStr={}, wakeDateTime={}, now={}, deadline={}, assignedAt={}", 
                 user.getId(), wakeTimeStr, wakeDateTime, now, deadline, userMission.getAssignedAt());
         
@@ -830,6 +835,7 @@ public class UserMissionService {
 
     /**
      * 기상 미션 인증 (시간 제한: 사용자 설정 wake_time + 10분)
+     * now, wakeDateTime, deadline은 Asia/Seoul(KST) 기준으로 계산 (서버 UTC 시 만료 판정 오류 방지)
      */
     private VerifyMissionResponse verifyWakeUpMission(UserMission userMission, LocalDateTime now) {
         User user = userMission.getUser();
@@ -843,7 +849,6 @@ public class UserMissionService {
         // 사용자 설정 기상 시간 파싱
         LocalTime wakeTime;
         try {
-            // 다양한 형식 지원 (HH:mm, H:mm 등)
             wakeTime = LocalTime.parse(wakeTimeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
         } catch (Exception e) {
             log.error("기상 시간 파싱 실패: wakeTimeStr={}, userId={}", wakeTimeStr, user.getId(), e);
@@ -851,28 +856,28 @@ public class UserMissionService {
                     "기상 시간 형식이 올바르지 않습니다.");
         }
         
-        // 오늘 날짜의 기상 시간 생성
-        LocalDateTime wakeDateTime = LocalDate.now().atTime(wakeTime);
-        
-        // 기상 시간 + 10분이 마감 시간
+        // KST 기준 오늘 날짜·기상 시각·마감 시각 (서버가 UTC여도 사용자 시간대로 판정)
+        ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
+        LocalDateTime nowForCheck = nowKst.toLocalDateTime();
+        LocalDateTime wakeDateTime = nowKst.toLocalDate().atTime(wakeTime);
         LocalDateTime deadline = wakeDateTime.plusMinutes(10);
         
         log.debug("기상 미션 인증 시간 체크: userId={}, wakeTime={}, wakeDateTime={}, now={}, deadline={}", 
-                user.getId(), wakeTimeStr, wakeDateTime, now, deadline);
+                user.getId(), wakeTimeStr, wakeDateTime, nowForCheck, deadline);
         
         // 기상 시간 이전에는 인증 불가
-        if (now.isBefore(wakeDateTime)) {
+        if (nowForCheck.isBefore(wakeDateTime)) {
             log.warn("기상 시간 이전 인증 시도: userId={}, wakeDateTime={}, now={}", 
-                    user.getId(), wakeDateTime, now);
+                    user.getId(), wakeDateTime, nowForCheck);
             throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
                     "기상 시간 이전에는 인증할 수 없습니다.");
         }
         
         // 현재 시간이 마감 시간을 초과했는지 확인 (초과: >, 같거나 이전: <=)
-        if (now.isAfter(deadline)) {
-            Duration elapsed = Duration.between(wakeDateTime, now);
+        if (nowForCheck.isAfter(deadline)) {
+            Duration elapsed = Duration.between(wakeDateTime, nowForCheck);
             log.warn("기상 미션 시간 초과: userId={}, wakeDateTime={}, deadline={}, now={}, elapsedMinutes={}", 
-                    user.getId(), wakeDateTime, deadline, now, elapsed.toMinutes());
+                    user.getId(), wakeDateTime, deadline, nowForCheck, elapsed.toMinutes());
             // 시간 초과 시 실패 처리
             userMission.fail();
             userMissionRepository.save(userMission);
@@ -893,7 +898,7 @@ public class UserMissionService {
                 .build();
         verificationRepository.save(verification);
 
-        Duration elapsed = Duration.between(wakeDateTime, now);
+        Duration elapsed = Duration.between(wakeDateTime, nowForCheck);
         log.info("기상 미션 인증 완료: userMissionId={}, userId={}, wakeTime={}, elapsedMinutes={}", 
                 userMission.getId(), user.getId(), wakeTimeStr, elapsed.toMinutes());
 

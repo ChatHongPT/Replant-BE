@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -98,17 +100,20 @@ public class SpontaneousMissionScheduler {
     /**
      * 돌발 미션 할당
      */
+    private static final ZoneId ZONE_SEOUL = ZoneId.of("Asia/Seoul");
+
     private void assignSpontaneousMissionsInternal() {
         log.info("=== 돌발 미션 할당 스케줄러 시작 ===");
         
         try {
-            LocalDateTime now = LocalDateTime.now();
+            // KST 기준 현재 시각 사용 (서버 JVM이 UTC여도 사용자 기상/식사 시간과 일치)
+            ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
+            LocalDateTime now = nowKst.toLocalDateTime();
             LocalTime currentTime = now.toLocalTime();
             
-            // 현재 시간을 그대로 사용 (1분 단위로 실행하므로 정확한 매칭 가능)
             String targetTime = currentTime.format(TIME_FORMATTER);
             
-            log.info("현재 시간: {}, 타겟 시간: {}", currentTime, targetTime);
+            log.info("현재 시간(KST): {}, 타겟 시간: {}", currentTime, targetTime);
             
             AtomicInteger assignedCount = new AtomicInteger(0);
             AtomicInteger skippedCount = new AtomicInteger(0);
@@ -313,11 +318,11 @@ public class SpontaneousMissionScheduler {
      * 기상 미션 할당
      */
     private void assignWakeUpMission(User user, LocalDateTime now) {
-        // 오늘 이미 기상 미션이 할당되었는지 확인
-        if (hasSpontaneousMissionToday(user, "기상", now.toLocalDate())) {
-            log.debug("사용자 {}는 오늘 이미 기상 미션이 할당됨", user.getId());
-            return;
-        }
+        // [테스트용 비활성화] 오늘 이미 기상 미션이 할당되었는지 확인 - 테스트 후 복구
+        // if (hasSpontaneousMissionToday(user, "기상", now.toLocalDate())) {
+        //     log.debug("사용자 {}는 오늘 이미 기상 미션이 할당됨", user.getId());
+        //     return;
+        // }
         
         // spontaneous_mission 테이블에서 기상 미션 정보 조회
         Optional<SpontaneousMission> spontaneousMissionOpt = spontaneousMissionRepository
