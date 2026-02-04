@@ -1,0 +1,27 @@
+# 디스크/빌드 컨텍스트 절약 (hbase, 캐시 등 제외)
+.git
+.gradle
+hbase
+hbase-*
+trash
+scripts
+*.md
+
+# 보안: env/비밀 파일은 이미지에 넣지 않음
+.env
+.env.*
+replant.env
+*.json
+!gradle/wrapper/gradle-wrapper.jar
+
+# Gradle 소스/설정은 이미지에 불필요 (build/libs/*.jar 만 필요)
+src
+build.gradle
+settings.gradle
+gradlew
+gradlew.bat
+gradle.properties
+gradle/wrapper/gradle-wrapper.properties
+# build/ 제외하되 build/libs/ 는 포함 (COPY용)
+build
+!build/libs
