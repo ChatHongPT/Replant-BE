@@ -424,7 +424,7 @@ public class SpontaneousMissionScheduler {
         String content = mealType.getDisplayName() + " 식사 미션이 도착했습니다. 게시글을 작성해주세요!";
         
         try {
-            Notification savedNotification = notificationService.createAndPushNotification(
+            Notification savedNotification = notificationService.createAndPushNotificationInNewTx(
                     user,
                     NotificationType.SPONTANEOUS_MEAL,
                     title,
@@ -602,7 +602,7 @@ public class SpontaneousMissionScheduler {
                 referenceId = userMissionId;
             }
             
-            Notification savedNotification = notificationService.createAndPushNotification(
+            Notification savedNotification = notificationService.createAndPushNotificationInNewTx(
                     user,
                     notificationType,
                     title,

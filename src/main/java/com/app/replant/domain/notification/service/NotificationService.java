@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -153,6 +154,16 @@ public class NotificationService {
     @Transactional
     public Notification createAndPushNotification(User user, NotificationType type, String title,
                                                    String content, String referenceType, Long referenceId) {
+        return createAndPushNotification(user, type.name(), title, content, referenceType, referenceId);
+    }
+
+    /**
+     * 알림 생성+전송을 별도 트랜잭션(REQUIRES_NEW)으로 실행.
+     * 스케줄러 등에서 호출 시 알림 전송 실패가 미션 할당 트랜잭션 rollback-only를 유발하지 않도록 함.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Notification createAndPushNotificationInNewTx(User user, NotificationType type, String title,
+                                                          String content, String referenceType, Long referenceId) {
         return createAndPushNotification(user, type.name(), title, content, referenceType, referenceId);
     }
 
