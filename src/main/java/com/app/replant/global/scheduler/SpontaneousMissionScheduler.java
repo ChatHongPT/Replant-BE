@@ -11,7 +11,7 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.spontaneousmission.entity.SpontaneousMission;
 import com.app.replant.domain.spontaneousmission.enums.SpontaneousMissionType;
-import com.app.replant.domain.spontaneousmission.service.SpontaneousMissionService;
+import com.app.replant.domain.spontaneousmission.repository.SpontaneousMissionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -48,7 +48,7 @@ public class SpontaneousMissionScheduler {
     private final NotificationService notificationService;
     private final FcmService fcmService;
     private final MealLogService mealLogService;
-    private final SpontaneousMissionService spontaneousMissionService;
+    private final SpontaneousMissionRepository spontaneousMissionRepository;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -70,15 +70,8 @@ public class SpontaneousMissionScheduler {
             e.printStackTrace();
         }
         
-        try {
-            int expiredCount = spontaneousMissionService.processExpiredMissions();
-            if (expiredCount > 0) {
-                log.info("만료된 돌발 미션 {}개 처리 완료", expiredCount);
-            }
-        } catch (Exception e) {
-            log.error("돌발 미션 시간 초과 처리 중 예외 발생", e);
-            e.printStackTrace();
-        }
+        // TODO: SpontaneousMissionService가 삭제되어 만료 처리 기능 비활성화
+        // 필요시 UserMissionService에 통합 또는 별도 구현 필요
     }
 
     /**
@@ -297,17 +290,22 @@ public class SpontaneousMissionScheduler {
 
     /**
      * 기상 미션 할당
+     * TODO: SpontaneousMissionService 삭제로 인해 임시 비활성화
+     * 필요시 UserMissionService에 통합 또는 별도 구현 필요
      */
     private void assignWakeUpMission(User user, LocalDateTime now) {
-        SpontaneousMission mission = spontaneousMissionService.assignMission(
-                user, SpontaneousMissionType.WAKE_UP, now, null);
+        // SpontaneousMission 엔티티에서 직접 조회
+        SpontaneousMission template = spontaneousMissionRepository.findByMissionType(SpontaneousMissionType.WAKE_UP)
+                .orElse(null);
         
-        if (mission != null) {
-            log.info("기상 미션 할당 완료: userId={}, missionId={}", user.getId(), mission.getId());
-            sendSpontaneousMissionNotification(user, "기상하기", "기상", mission.getId());
-        } else {
-            log.debug("사용자 {}는 오늘 이미 기상 미션이 할당됨", user.getId());
+        if (template == null) {
+            log.warn("기상 미션 템플릿을 찾을 수 없습니다.");
+            return;
         }
+        
+        // TODO: UserMission 생성 로직 필요
+        log.info("기상 미션 할당 필요: userId={}, missionType={}", user.getId(), SpontaneousMissionType.WAKE_UP);
+        sendSpontaneousMissionNotification(user, "기상하기", "기상", null);
     }
 
     /**
@@ -348,19 +346,21 @@ public class SpontaneousMissionScheduler {
                 return;
         }
 
-        // SpontaneousMission 할당
-        SpontaneousMission mission = spontaneousMissionService.assignMission(
-                user, missionType, now, mealLog);
+        // SpontaneousMission 엔티티에서 직접 조회
+        SpontaneousMission template = spontaneousMissionRepository.findByMissionType(missionType)
+                .orElse(null);
         
-        if (mission != null) {
-            log.info("{} 식사 미션 할당 완료: userId={}, missionId={}, mealLogId={}", 
-                    mealType, user.getId(), mission.getId(), mealLog.getId());
-            
-            // 알림 전송 (SSE/FCM) - missionId 전달
-            sendMealMissionNotification(user, mealTypeEnum, mission.getId());
-        } else {
-            log.debug("사용자 {}는 오늘 이미 {} 식사 미션이 할당됨", user.getId(), mealType);
+        if (template == null) {
+            log.warn("{} 미션 템플릿을 찾을 수 없습니다.", mealType);
+            return;
         }
+        
+        // TODO: UserMission 생성 로직 필요
+        log.info("{} 식사 미션 할당 필요: userId={}, missionType={}, mealLogId={}", 
+                mealType, user.getId(), missionType, mealLog.getId());
+        
+        // 알림 전송 (SSE/FCM) - missionId는 null로 전달 (임시)
+        sendMealMissionNotification(user, mealTypeEnum, null);
     }
 
     /**
@@ -403,17 +403,22 @@ public class SpontaneousMissionScheduler {
 
     /**
      * 감성일기 작성 미션 할당
+     * TODO: SpontaneousMissionService 삭제로 인해 임시 비활성화
+     * 필요시 UserMissionService에 통합 또는 별도 구현 필요
      */
     private void assignEmotionalDiaryMission(User user, LocalDateTime now) {
-        SpontaneousMission mission = spontaneousMissionService.assignMission(
-                user, SpontaneousMissionType.DIARY, now, null);
+        // SpontaneousMission 엔티티에서 직접 조회
+        SpontaneousMission template = spontaneousMissionRepository.findByMissionType(SpontaneousMissionType.DIARY)
+                .orElse(null);
         
-        if (mission != null) {
-            log.info("감성일기 미션 할당 완료: userId={}, missionId={}", user.getId(), mission.getId());
-            sendSpontaneousMissionNotification(user, "감성일기 쓰기", "감성일기", mission.getId());
-        } else {
-            log.debug("사용자 {}는 오늘 이미 감성일기 미션이 할당됨", user.getId());
+        if (template == null) {
+            log.warn("감성일기 미션 템플릿을 찾을 수 없습니다.");
+            return;
         }
+        
+        // TODO: UserMission 생성 로직 필요
+        log.info("감성일기 미션 할당 필요: userId={}, missionType={}", user.getId(), SpontaneousMissionType.DIARY);
+        sendSpontaneousMissionNotification(user, "감성일기 쓰기", "감성일기", null);
     }
 
 
@@ -425,9 +430,10 @@ public class SpontaneousMissionScheduler {
      * - 감성일기 미션: 감성일기 작성 화면으로 바로 이동
      */
     private void sendSpontaneousMissionNotification(User user, String missionTitle, String missionType, Long missionId) {
+        // TODO: missionId가 null일 수 있음 (SpontaneousMissionService 삭제로 인해)
+        // 임시로 null 허용하되 로그 남김
         if (missionId == null) {
-            log.warn("missionId가 null이므로 알림을 전송하지 않습니다. userId={}, missionType={}", user.getId(), missionType);
-            return;
+            log.warn("missionId가 null입니다. 알림은 전송하지만 참조 ID는 없습니다. userId={}, missionType={}", user.getId(), missionType);
         }
         
         try {
@@ -463,7 +469,7 @@ public class SpontaneousMissionScheduler {
                     title,
                     content,
                     "SPONTANEOUS_MISSION",  // 참조 타입 변경
-                    missionId    // 참조 ID (spontaneousMissionId)
+                    missionId    // 참조 ID (spontaneousMissionId, null 가능)
             );
             
             // 기상 미션의 경우 중요한 알림이므로 FCM을 확실히 전송

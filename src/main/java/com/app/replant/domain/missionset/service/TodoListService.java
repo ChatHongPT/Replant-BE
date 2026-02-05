@@ -7,10 +7,8 @@ import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
-import com.app.replant.domain.missionset.entity.TodoListReview;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
-import com.app.replant.domain.missionset.repository.TodoListReviewRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
@@ -38,7 +36,6 @@ public class TodoListService {
 
         private final TodoListRepository todoListRepository;
         private final TodoListMissionRepository todoListMissionRepository;
-        private final TodoListReviewRepository reviewRepository;
         private final MissionRepository missionRepository;
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
@@ -383,87 +380,6 @@ public class TodoListService {
         // ============ 리뷰 관련 메서드들 ============
 
         /**
-         * 투두리스트 리뷰 작성
-         */
-        @Transactional
-        public TodoListDto.ReviewResponse createReview(Long todoListId, Long userId,
-                        TodoListDto.ReviewRequest request) {
-                TodoList todoList = todoListRepository.findById(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 자신의 투두리스트에는 리뷰 작성 불가
-                if (todoList.isCreator(userId)) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "자신의 투두리스트에는 리뷰를 작성할 수 없습니다.");
-                }
-
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-                // 이미 리뷰를 작성했는지 확인
-                if (reviewRepository.existsByTodoListAndUser(todoList, user)) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 리뷰를 작성했습니다.");
-                }
-
-                // 뱃지 보유 여부 확인 (투두리스트 내 미션 중 하나라도 뱃지가 있어야 함)
-                boolean hasBadge = todoList.getMissions().stream()
-                                .anyMatch(msm -> userBadgeRepository.hasValidBadgeForMission(userId,
-                                                msm.getMission().getId(), LocalDateTime.now()));
-
-                if (!hasBadge) {
-                        throw new CustomException(ErrorCode.BADGE_REQUIRED, "이 투두리스트의 미션 뱃지를 획득해야 리뷰를 작성할 수 있습니다.");
-                }
-
-                // 리뷰 생성
-                TodoListReview review = TodoListReview.builder()
-                                .todoList(todoList)
-                                .user(user)
-                                .rating(request.getRating())
-                                .content(request.getContent())
-                                .build();
-                reviewRepository.save(review);
-
-                // 평균 별점 업데이트
-                updateAverageRating(todoList);
-
-                log.info("투두리스트 리뷰 작성: todoListId={}, userId={}", todoListId, userId);
-                return buildReviewResponse(review);
-        }
-
-        /**
-         * 투두리스트 리뷰 목록 조회
-         */
-        public Page<TodoListDto.ReviewResponse> getReviews(Long todoListId, Pageable pageable) {
-                TodoList todoList = todoListRepository.findById(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                return reviewRepository.findByTodoListOrderByCreatedAtDesc(todoList, pageable)
-                                .map(this::buildReviewResponse);
-        }
-
-        /**
-         * 평균 별점 업데이트
-         */
-        private void updateAverageRating(TodoList todoList) {
-                // 리뷰 평점 업데이트 제거됨 (공유 기능 제거)
-        }
-
-        /**
-         * ReviewResponse 빌드 헬퍼
-         */
-        private TodoListDto.ReviewResponse buildReviewResponse(TodoListReview review) {
-                return TodoListDto.ReviewResponse.builder()
-                                .id(review.getId())
-                                .todoListId(review.getTodoList().getId())
-                                .userId(review.getUser().getId())
-                                .userNickname(review.getUser().getNickname())
-                                .rating(review.getRating())
-                                .content(review.getContent())
-                                .createdAt(review.getCreatedAt())
-                                .updatedAt(review.getUpdatedAt())
-                                .build();
-        }
-
-        /**
          * 투두리스트 수정
          */
         @Transactional
@@ -483,64 +399,6 @@ public class TodoListService {
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
-        /**
-         * 내 리뷰 조회
-         */
-        public TodoListDto.ReviewResponse getMyReview(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findById(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-                return reviewRepository.findByTodoListAndUser(todoList, user)
-                                .map(this::buildReviewResponse)
-                                .orElse(null);
-        }
-
-        /**
-         * 리뷰 수정
-         */
-        @Transactional
-        public TodoListDto.ReviewResponse updateReview(Long reviewId, Long userId, TodoListDto.UpdateReviewRequest request) {
-                TodoListReview review = reviewRepository.findById(reviewId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
-
-                // 본인 리뷰만 수정 가능
-                if (!review.getUser().getId().equals(userId)) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                review.update(request.getRating(), request.getContent());
-
-                // 평균 별점 업데이트
-                updateAverageRating(review.getTodoList());
-
-                log.info("투두리스트 리뷰 수정: reviewId={}, userId={}", reviewId, userId);
-                return buildReviewResponse(review);
-        }
-
-        /**
-         * 리뷰 삭제
-         */
-        @Transactional
-        public void deleteReview(Long reviewId, Long userId) {
-                TodoListReview review = reviewRepository.findById(reviewId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
-
-                // 본인 리뷰만 삭제 가능
-                if (!review.getUser().getId().equals(userId)) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                TodoList todoList = review.getTodoList();
-                reviewRepository.delete(review);
-
-                // 평균 별점 업데이트
-                updateAverageRating(todoList);
-
-                log.info("투두리스트 리뷰 삭제: reviewId={}, userId={}", reviewId, userId);
-        }
 
         /**
          * 투두리스트 삭제
