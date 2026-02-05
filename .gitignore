@@ -64,3 +64,11 @@ debug.keystore
 # Docs and Scripts
 docs/
 scripts/
+
+# HBase
+hbase
+hbase-2.5.8-bin.tar.gz
+hbase-create.hbase
+
+# Local Environment
+replant.env
