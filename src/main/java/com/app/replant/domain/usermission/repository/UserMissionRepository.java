@@ -13,15 +13,13 @@ import java.util.Optional;
  */
 public interface UserMissionRepository extends JpaRepository<UserMission, Long>, UserMissionRepositoryCustom {
 
-    /** 투두리스트에서 생성된 UserMission 목록 조회 (삭제 가능 여부 검사용) */
-    List<UserMission> findByTodoList_Id(Long todoListId);
-
-    /** 사용자의 가장 최근 ASSIGNED 돌발 미션 (기상 미션 조회 폴백용, KST 날짜 불일치 시) */
+    // TODO: UserMission 엔티티에 TodoList 필드가 없어서 주석 처리
+    // 투두리스트와 UserMission의 관계는 TodoListMission을 통해 관리됨
+    // List<UserMission> findByTodoList_Id(Long todoListId);
+    // void deleteByTodoList_Id(Long todoListId);
+    
     // TODO: isSpontaneous 필드가 삭제되어 임시로 주석 처리
     // 필요시 mission IS NULL 조건으로 QueryDSL로 구현 필요
     // Optional<UserMission> findTopByUserIdAndIsSpontaneousAndStatusOrderByAssignedAtDesc(
     //         Long userId, Boolean isSpontaneous, UserMissionStatus status);
-
-    /** 투두리스트에서 생성된 UserMission 전부 삭제 (투두리스트 Hard Delete 시 나의 미션/캘린더에서도 제거) */
-    void deleteByTodoList_Id(Long todoListId);
 }
