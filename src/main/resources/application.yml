@@ -102,11 +102,12 @@ spring:
   # ===========================================
   ai:
     # Google Gemini (Primary) - API Key만 사용
-    # 주의: api-key만 설정하면 API Key 모드로 동작 (credentials 불필요)
-    # project-id와 location을 설정하지 않으면 API Key 모드로 동작
+    # 주의: Spring AI가 project-id를 필수로 체크하므로 설정 필요
+    # location을 설정하지 않으면 API Key 모드로 동작 (credentials 불필요)
     google:
       genai:
         api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY}}
+        project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
         chat:
           options:
             model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
