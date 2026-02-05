@@ -2,10 +2,11 @@ package com.app.replant.global.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
-import org.springframework.ai.google.genai.api.GoogleGenAiApi;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 /**
  * Google GenAI (Gemini) 설정
@@ -29,18 +30,19 @@ public class GoogleGenAiConfig {
     public GoogleGenAiChatModel googleGenAiChatModel() {
         log.info("Google GenAI ChatModel 생성 (API Key 모드) - Model: {}, Temperature: {}", model, temperature);
         
-        // API Key만으로 GoogleGenAiApi 생성
-        GoogleGenAiApi api = new GoogleGenAiApi(apiKey);
+        // RestClient 생성 (API Key 사용)
+        RestClient restClient = RestClient.builder()
+            .baseUrl("https://generativelanguage.googleapis.com/v1beta")
+            .defaultHeader("x-goog-api-key", apiKey)
+            .build();
         
-        // GoogleGenAiChatModel 생성
-        GoogleGenAiChatModel chatModel = new GoogleGenAiChatModel(
-            api,
-            GoogleGenAiApi.ChatOptions.builder()
-                .withModel(model)
-                .withTemperature(temperature.floatValue())
-                .build()
-        );
+        // ChatOptions 생성
+        GoogleGenAiChatOptions options = GoogleGenAiChatOptions.builder()
+            .withModel(model)
+            .withTemperature(temperature.floatValue())
+            .build();
         
-        return chatModel;
+        // GoogleGenAiChatModel 생성 (RestClient와 Options 사용)
+        return new GoogleGenAiChatModel(restClient, options);
     }
 }
