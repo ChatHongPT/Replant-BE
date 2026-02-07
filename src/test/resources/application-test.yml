@@ -78,6 +78,7 @@ spring:
       genai:
         api-key: test-api-key
         project-id: test-project
+        location: us-central1  # Spring AI가 필수로 요구하는 location 설정
         chat:
           options:
             model: gemini-3-flash-preview
