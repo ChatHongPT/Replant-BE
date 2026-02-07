@@ -106,7 +106,7 @@ spring:
     # api-key가 설정되어 있으면 API Key 모드로 동작 (credentials 불필요)
     google:
       genai:
-        api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY}}
+        api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY:dummy-api-key}}
         project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
         # location 설정 시 Vertex AI 모드로 전환됨 (credentials 필요)
         # API Key 모드 사용 시 location을 설정하지 않음
@@ -119,7 +119,7 @@ spring:
     # OpenAI 호환 API - Qwen/vLLM (Fallback)
     # 주의: Spring AI가 자동으로 /v1을 추가하므로 base-url에 /v1 제외
     openai:
-      base-url: ${QWEN_API_URL:${env.QWEN_API_URL}}
+      base-url: ${QWEN_API_URL:${env.QWEN_API_URL:http://localhost:8000}}
       api-key: ${QWEN_API_KEY:${env.QWEN_API_KEY:dummy}}
       chat:
         options:

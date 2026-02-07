@@ -93,9 +93,10 @@ spring:
 
 # ===========================================
 # JWT 설정 (테스트용 더미 값)
+# Base64 인코딩된 32바이트 이상의 키 필요
 # ===========================================
 jwt:
-  secret: test-jwt-secret-key-for-testing-purposes-only-minimum-256-bits
+  secret: dGVzdC1qd3Qtc2VjcmV0LWtleS1mb3ItdGVzdGluZy1wdXJwb3Nlcy1vbmx5LW1pbmltdW0tMjU2LWJpdHM=
 
 # ===========================================
 # AWS S3 설정 (테스트용 더미 값)
